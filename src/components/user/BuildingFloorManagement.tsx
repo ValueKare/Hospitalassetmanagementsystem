@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { Building2, Layers, Plus, Edit2, MapPin, DollarSign } from "lucide-react";
+import { BuildingFloorHierarchy } from "../shared/BuildingFloorHierarchy";
 import { toast } from "sonner";
 
 interface BuildingFloorManagementProps {
@@ -33,10 +34,39 @@ const mockCostCenters = [
   { id: 3, code: "CC-003", name: "Radiology Department", building: "Main Building", floor: "1st Floor", budget: "$320,000" },
 ];
 
+const hierarchyData = [
+  {
+    id: 1,
+    name: "Main Building",
+    number: "MB",
+    entity: "City General Hospital",
+    totalAssets: 1245,
+    floors: [
+      { id: 1, name: "Ground Floor", number: "GF", assetCount: 156, departments: ["Reception", "Pharmacy"] },
+      { id: 2, name: "1st Floor", number: "1F", assetCount: 234, departments: ["Radiology", "Lab"] },
+      { id: 3, name: "2nd Floor", number: "2F", assetCount: 189, departments: ["Cardiology"] },
+      { id: 4, name: "3rd Floor", number: "3F", assetCount: 312, departments: ["Surgery", "ICU"] },
+    ],
+  },
+  {
+    id: 2,
+    name: "Emergency Wing",
+    number: "EW",
+    entity: "City General Hospital",
+    totalAssets: 567,
+    floors: [
+      { id: 5, name: "Ground Floor", number: "GF", assetCount: 345, departments: ["Emergency", "Trauma"] },
+      { id: 6, name: "1st Floor", number: "1F", assetCount: 222, departments: ["Observation"] },
+    ],
+  },
+];
+
 export function BuildingFloorManagement({ onNavigate }: BuildingFloorManagementProps) {
   const [isAddBuildingOpen, setIsAddBuildingOpen] = useState(false);
   const [isAddFloorOpen, setIsAddFloorOpen] = useState(false);
   const [isAddCostCenterOpen, setIsAddCostCenterOpen] = useState(false);
+  const [selectedBuilding, setSelectedBuilding] = useState<number>();
+  const [selectedFloor, setSelectedFloor] = useState<number>();
 
   return (
     <div className="flex-1 p-8 bg-[#F9FAFB] min-h-screen">
@@ -82,16 +112,18 @@ export function BuildingFloorManagement({ onNavigate }: BuildingFloorManagementP
         </Card>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="buildings" className="space-y-6">
-        <TabsList className="grid w-full md:w-auto grid-cols-3">
-          <TabsTrigger value="buildings">Buildings</TabsTrigger>
-          <TabsTrigger value="floors">Floors</TabsTrigger>
-          <TabsTrigger value="cost-centers">Cost Centers</TabsTrigger>
-        </TabsList>
+      {/* Tabs with Hierarchy */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2">
+          <Tabs defaultValue="buildings" className="space-y-6">
+            <TabsList className="grid w-full md:w-auto grid-cols-3">
+              <TabsTrigger value="buildings">Buildings</TabsTrigger>
+              <TabsTrigger value="floors">Floors</TabsTrigger>
+              <TabsTrigger value="cost-centers">Cost Centers</TabsTrigger>
+            </TabsList>
 
-        {/* Buildings Tab */}
-        <TabsContent value="buildings">
+            {/* Buildings Tab */}
+            <TabsContent value="buildings">
           <Card className="border-0 shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -384,6 +416,23 @@ export function BuildingFloorManagement({ onNavigate }: BuildingFloorManagementP
           </Card>
         </TabsContent>
       </Tabs>
+        </div>
+
+        {/* Right Panel - Building Hierarchy */}
+        <div className="lg:col-span-1">
+          <BuildingFloorHierarchy
+            data={hierarchyData}
+            selectedBuilding={selectedBuilding}
+            selectedFloor={selectedFloor}
+            onBuildingSelect={setSelectedBuilding}
+            onFloorSelect={(buildingId, floorId) => {
+              setSelectedBuilding(buildingId);
+              setSelectedFloor(floorId);
+              toast.success(`Selected floor from ${hierarchyData.find(b => b.id === buildingId)?.name}`);
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

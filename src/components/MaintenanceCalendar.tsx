@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "./ui/table";
-import { Calendar as CalendarIcon, Plus, Wrench, CheckCircle, AlertCircle } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Wrench, CheckCircle, AlertCircle, Bell, AlertTriangle, Clock } from "lucide-react";
 
 interface MaintenanceCalendarProps {
   onNavigate: (screen: string) => void;
@@ -128,6 +128,50 @@ export function MaintenanceCalendar({ onNavigate }: MaintenanceCalendarProps) {
       </div>
 
       <div className="p-6 space-y-6">
+        {/* Maintenance Alerts Section */}
+        <Card className="border-0 shadow-md bg-gradient-to-r from-red-50 to-orange-50 border-l-4 border-red-500">
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <Bell className="h-5 w-5 text-red-600" />
+              <CardTitle className="text-red-900">Maintenance Alerts</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-start space-x-3 p-3 bg-white rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-gray-900">2 Assets Overdue for Maintenance</p>
+                  <p className="text-gray-600">Blood Gas Analyzer (Lab) & X-Ray Machine (Radiology)</p>
+                </div>
+                <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
+                  Schedule Now
+                </Button>
+              </div>
+              <div className="flex items-start space-x-3 p-3 bg-white rounded-lg">
+                <Clock className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-gray-900">5 AMC Contracts Expiring Soon</p>
+                  <p className="text-gray-600">Within next 30 days - Action required</p>
+                </div>
+                <Button size="sm" variant="outline" className="border-orange-200 text-orange-600 hover:bg-orange-50">
+                  View Details
+                </Button>
+              </div>
+              <div className="flex items-start space-x-3 p-3 bg-white rounded-lg">
+                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-gray-900">3 Warranty Expiring This Month</p>
+                  <p className="text-gray-600">Ventilator, CT Scanner, Ultrasound Machine</p>
+                </div>
+                <Button size="sm" variant="outline" className="border-yellow-200 text-yellow-600 hover:bg-yellow-50">
+                  Renew
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="border-0 shadow-sm">

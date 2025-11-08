@@ -3,7 +3,9 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
-import { Building2, Mail, Lock, Shield } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Checkbox } from "./ui/checkbox";
+import { Building2, Mail, Lock, Shield, UserCog } from "lucide-react";
 
 interface LoginScreenProps {
   onLogin: (role: string, panel: string) => void;
@@ -34,6 +36,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [hospitalId, setHospitalId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState<string>("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
@@ -52,8 +56,58 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#E8F0FF] via-white to-[#F0F9FF] p-4">
-      <Card className="w-full max-w-md shadow-2xl border-0">
+    <div className="min-h-screen flex bg-gradient-to-br from-[#E8F0FF] via-white to-[#F0F9FF]">
+      {/* Left Panel - Brand Visual */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#0F67FF] to-[#0B4FCC] p-12 flex-col justify-between">
+        <div>
+          <div className="flex items-center space-x-3 mb-8">
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center">
+              <Shield className="h-7 w-7 text-[#0F67FF]" />
+            </div>
+            <div>
+              <h2 className="text-white">ValueKare HFAMS</h2>
+              <p className="text-white/80">Asset Management System</p>
+            </div>
+          </div>
+          <div className="space-y-6 text-white/90">
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-white mb-1">Multi-Entity Management</h3>
+                <p className="text-white/70">Manage multiple hospitals and healthcare facilities from one platform</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <UserCog className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-white mb-1">Role-Based Access</h3>
+                <p className="text-white/70">Secure access control with 15+ specialized user roles</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Shield className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-white mb-1">Complete Asset Lifecycle</h3>
+                <p className="text-white/70">Track assets from procurement to disposal with full audit trails</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="text-white/60">
+          <p>© 2024 HCG Hospital Asset Management System</p>
+          <p className="mt-2">Trusted by leading healthcare institutions</p>
+        </div>
+      </div>
+
+      {/* Right Panel - Login Form */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-2xl border-0">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-16 h-16 bg-gradient-to-br from-[#0F67FF] to-[#0B4FCC] rounded-2xl flex items-center justify-center shadow-lg">
             <Shield className="h-8 w-8 text-white" />
@@ -146,7 +200,31 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 />
               </div>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Login As (Optional)</Label>
+              <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Auto-detect from email" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto-detect</SelectItem>
+                  <SelectItem value="admin">Admin Panel</SelectItem>
+                  <SelectItem value="user">User Panel</SelectItem>
+                  <SelectItem value="audit">Audit User</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="remember" 
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <Label htmlFor="remember" className="text-gray-600 cursor-pointer">
+                  Remember me
+                </Label>
+              </div>
               <a href="#" className="text-[#0F67FF] hover:underline">
                 Forgot Password?
               </a>
@@ -155,6 +233,26 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC] hover:from-[#0B4FCC] hover:to-[#0F67FF] shadow-lg">
               Sign In Securely
+            </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-white px-4 text-gray-500">Or</span>
+              </div>
+            </div>
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                setEmail("audit@hfams.com");
+                setPassword("audit123");
+              }}
+            >
+              <UserCog className="h-4 w-4 mr-2" />
+              Sign In as Audit User
             </Button>
             <div className="text-center">
               Need access?{" "}
@@ -165,6 +263,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   );
 }
