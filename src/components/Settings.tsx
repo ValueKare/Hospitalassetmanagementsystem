@@ -27,15 +27,15 @@ const users = [
   {
     id: 1,
     name: "John Smith",
-    email: "john.smith@hospital.com",
-    role: "Hospital Admin",
+    email: "john.smith@valuekare.com",
+    role: "System Admin",
     department: "Administration",
     status: "Active",
   },
   {
     id: 2,
     name: "Sarah Johnson",
-    email: "sarah.j@hospital.com",
+    email: "sarah.j@valuekare.com",
     role: "Department Head",
     department: "Radiology",
     status: "Active",
@@ -43,7 +43,7 @@ const users = [
   {
     id: 3,
     name: "Michael Chen",
-    email: "m.chen@hospital.com",
+    email: "m.chen@valuekare.com",
     role: "Staff",
     department: "Biomedical",
     status: "Active",
@@ -51,7 +51,7 @@ const users = [
   {
     id: 4,
     name: "Emily Davis",
-    email: "emily.d@hospital.com",
+    email: "emily.d@valuekare.com",
     role: "Department Head",
     department: "ICU",
     status: "Active",
@@ -309,7 +309,7 @@ export function Settings({ onNavigate, userRole }: SettingsProps) {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Module / Feature</TableHead>
-                        <TableHead className="text-center">Hospital Admin</TableHead>
+                        <TableHead className="text-center">System Admin</TableHead>
                         <TableHead className="text-center">Department Head</TableHead>
                         <TableHead className="text-center">Staff</TableHead>
                       </TableRow>
@@ -345,7 +345,7 @@ export function Settings({ onNavigate, userRole }: SettingsProps) {
                     <div className="flex items-start space-x-3">
                       <Shield className="h-5 w-5 text-purple-600 mt-0.5" />
                       <div>
-                        <h4 className="text-gray-900">Hospital Admin</h4>
+                        <h4 className="text-gray-900">System Admin</h4>
                         <p className="text-gray-600">
                           Full system access including user management, settings configuration, and all asset operations.
                         </p>
@@ -407,7 +407,7 @@ export function Settings({ onNavigate, userRole }: SettingsProps) {
               <Input
                 id="email"
                 type="email"
-                placeholder="john.doe@hospital.com"
+                placeholder="john.doe@valuekare.com"
                 value={inviteForm.email}
                 onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                 required
@@ -421,7 +421,7 @@ export function Settings({ onNavigate, userRole }: SettingsProps) {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Hospital Admin</SelectItem>
+                  <SelectItem value="admin">System Admin</SelectItem>
                   <SelectItem value="dept-head">Department Head</SelectItem>
                   <SelectItem value="staff">Staff</SelectItem>
                 </SelectContent>

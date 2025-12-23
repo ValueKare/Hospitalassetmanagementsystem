@@ -49,8 +49,8 @@ export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, on
             <Shield className="h-5 w-5 text-[#0F67FF]" />
           </div>
           <div>
-            <h2 className="text-white">HFAMS Admin</h2>
-            <p className="text-white/80">Control Panel</p>
+            <h2 className="text-white">ValueKare FAMS</h2>
+            <p className="text-white/80">Admin Panel</p>
           </div>
         </div>
       </div>

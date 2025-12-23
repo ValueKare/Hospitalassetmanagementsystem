@@ -63,7 +63,7 @@ export function NavigationSidebar({ currentScreen, userRole, onNavigate, onLogou
             <Package className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-gray-900">HFAMS</h2>
+            <h2 className="text-gray-900">ValueKare FAMS</h2>
             <p className="text-gray-500">Asset Manager</p>
           </div>
         </div>

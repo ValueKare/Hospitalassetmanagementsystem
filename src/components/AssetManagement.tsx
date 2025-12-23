@@ -149,7 +149,7 @@ export function AssetManagement({ onNavigate }: AssetManagementProps) {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-gray-900">Asset Management</h1>
-              <p className="text-gray-500">Track and manage all hospital assets</p>
+              <p className="text-gray-500">Track and manage all organizational assets</p>
             </div>
             <Button onClick={() => setShowAddAsset(true)} className="bg-[#0F67FF] hover:bg-[#0F67FF]/90">
               <Plus className="h-5 w-5 mr-2" />
