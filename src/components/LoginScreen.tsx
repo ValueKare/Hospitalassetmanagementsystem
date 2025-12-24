@@ -8,28 +8,40 @@ import { Checkbox } from "./ui/checkbox";
 import { Building2, Mail, Lock, Shield, UserCog } from "lucide-react";
 
 interface LoginScreenProps {
-  onLogin: (role: string, panel: string) => void;
+  onLogin: (role: string, panel: string, userData?: any) => void;
 }
 
-// Simulated user database for demo purposes
-const DEMO_USERS = {
-  "superadmin@valuekare.com": { password: "super123", role: "super-admin", name: "John Administrator", panel: "admin" },
-  "audit@valuekare.com": { password: "audit123", role: "audit-admin", name: "Jane Auditor", panel: "admin" },
-  "dept@valuekare.com": { password: "dept123", role: "department-head", name: "Sarah Johnson", panel: "user" },
-  "bio@valuekare.com": { password: "bio123", role: "biomedical", name: "Dr. Michael Chen", panel: "user" },
-  "store@valuekare.com": { password: "store123", role: "store-manager", name: "Emily Davis", panel: "user" },
-  "viewer@valuekare.com": { password: "viewer123", role: "viewer", name: "Robert Wilson", panel: "user" },
-  "doctor@valuekare.com": { password: "doctor123", role: "doctor", name: "Dr. Sarah Johnson", panel: "user" },
-  "nurse@valuekare.com": { password: "nurse123", role: "nurse", name: "Emily Chen", panel: "user" },
-  // Workflow Approvers
-  "level1@valuekare.com": { password: "level1", role: "level-1-approver", name: "Dr. Raj Kumar", panel: "user" },
-  "level2@valuekare.com": { password: "level2", role: "level-2-approver", name: "Dr. Priya Sharma", panel: "user" },
-  "level3@valuekare.com": { password: "level3", role: "level-3-approver", name: "Dr. Amit Patel", panel: "user" },
-  "hod@valuekare.com": { password: "hod123", role: "hod", name: "Dr. Michael Chen", panel: "user" },
-  "inventory@valuekare.com": { password: "inv123", role: "inventory-manager", name: "John Smith", panel: "user" },
-  "purchase@valuekare.com": { password: "pur123", role: "purchase-manager", name: "Emily Davis", panel: "user" },
-  "budget@valuekare.com": { password: "bud123", role: "budget-committee", name: "Robert Wilson", panel: "user" },
-  "cfo@valuekare.com": { password: "cfo123", role: "cfo", name: "Lisa Anderson", panel: "user" },
+interface DeviceInfo {
+  userAgent: string;
+  ipAddress: string;
+  deviceType: string;
+}
+
+interface LoginResponse {
+  success: boolean;
+  data: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+    user: any;
+    hospital: any;
+  };
+}
+
+const getDeviceInfo = (): DeviceInfo => {
+  return {
+    userAgent: navigator.userAgent,
+    ipAddress: "192.168.1.1", // You might want to get this from a service
+    deviceType: /Mobile|Android|iPhone|iPad/.test(navigator.userAgent) ? "mobile" : "desktop"
+  };
+};
+
+const storeAuthData = (response: any) => {
+  localStorage.setItem('accessToken', response.data.accessToken);
+  localStorage.setItem('refreshToken', response.data.refreshToken);
+  localStorage.setItem('user', JSON.stringify(response.data.user));
+  localStorage.setItem('hospital', JSON.stringify(response.data.hospital));
+  localStorage.setItem('expiresIn', response.data.expiresIn.toString());
 };
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
@@ -39,19 +51,55 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    // Simulate authentication
-    const user = DEMO_USERS[email as keyof typeof DEMO_USERS];
-    
-    if (user && user.password === password && organizationId) {
-      // Successful login - redirect to panel-based dashboard
-      onLogin(user.role, user.panel);
-    } else {
-      setError("Invalid credentials or missing Organization ID. Please try again.");
+    try {
+      const isAdminLogin = selectedRole === "admin" || email.includes("admin");
+      const apiUrl = isAdminLogin 
+        ? "http://localhost:5001/api/auth/hospital-admin/login"
+        : "http://localhost:5001/api/auth/user/login";
+
+      const requestBody: any = {
+        organizationId,
+        email,
+        password,
+        rememberMe
+      };
+
+      // Add device info only for user login
+      if (!isAdminLogin) {
+        requestBody.deviceInfo = getDeviceInfo();
+      }
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data: LoginResponse = await response.json();
+
+      if (data.success) {
+        // Store authentication data
+        storeAuthData(data);
+        
+        // Call onLogin with user data
+        onLogin(data.data.user.role, data.data.user.panel, data.data);
+      } else {
+        setError("Invalid credentials. Please try again.");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -231,8 +279,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC] hover:from-[#0B4FCC] hover:to-[#0F67FF] shadow-lg">
-              Sign In Securely
+            <Button 
+              type="submit" 
+              className="w-full bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC] hover:from-[#0B4FCC] hover:to-[#0F67FF] shadow-lg"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing In..." : "Sign In Securely"}
             </Button>
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
