@@ -59,22 +59,24 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setIsLoading(true);
 
     try {
-      const isAdminLogin = selectedRole === "admin" || email.includes("admin");
-      const apiUrl = isAdminLogin 
-        ? "http://localhost:5001/api/auth/hospital-admin/login"
-        : "http://localhost:5001/api/auth/user/login";
+      // const isAdminLogin = selectedRole === "admin" || email.includes("admin");
+      // const apiUrl = isAdminLogin 
+      //   ? "http://localhost:5001/api/auth/hospital-admin/login"
+      //   : "http://localhost:5001/api/auth/user/login";
+      // const apiUrl = "http://localhost:5001/api/auth/login";
+      const apiUrl = "https://ff9hq7hk-5001.inc1.devtunnels.ms/api/auth/login";
 
       const requestBody: any = {
         organizationId,
         email,
         password,
-        rememberMe
-      };
-
-      // Add device info only for user login
-      if (!isAdminLogin) {
-        requestBody.deviceInfo = getDeviceInfo();
+        rememberMe,
+        // deviceInfo: getDeviceInfo()
       }
+      // Add device info only for user login
+      // if (!isAdminLogin) {
+      //   requestBody.deviceInfo = getDeviceInfo();
+      // }
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -85,8 +87,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       });
 
       const data: LoginResponse = await response.json();
+      console.log("LOGIN RESPONSE:", JSON.stringify(data, null, 2));
 
       if (data.success) {
+        
         // Store authentication data
         storeAuthData(data);
         

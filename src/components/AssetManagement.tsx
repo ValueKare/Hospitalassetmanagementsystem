@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, ChangeEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -91,6 +91,9 @@ export function AssetManagement({ onNavigate }: AssetManagementProps) {
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showAddAsset, setShowAddAsset] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{success: boolean; message: string} | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     assetId: "",
     name: "",
@@ -122,6 +125,48 @@ export function AssetManagement({ onNavigate }: AssetManagementProps) {
         return "bg-orange-100 text-orange-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setIsUploading(true);
+    setUploadStatus(null);
+
+    try {
+      const response = await fetch('https://ff9hq7hk-5001.inc1.devtunnels.ms/api/upload/universal', {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header, let the browser set it with the correct boundary
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        setUploadStatus({
+          success: true,
+          message: `Successfully uploaded ${result.inserted} assets. ${result.errors ? `(${result.errors.length} errors)` : ''}`
+        });
+      } else {
+        throw new Error(result.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadStatus({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to upload file'
+      });
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -378,12 +423,32 @@ export function AssetManagement({ onNavigate }: AssetManagementProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="documents">Upload Documents</Label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#0F67FF] transition-colors cursor-pointer">
+              <Label htmlFor="documents">Upload Asset Data (CSV/Excel)</Label>
+              <input
+                type="file"
+                id="documents"
+                ref={fileInputRef}
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={isUploading}
+              />
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#0F67FF] transition-colors cursor-pointer"
+              >
                 <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                <p className="text-gray-600">Click to upload warranty or manual documents</p>
-                <p className="text-gray-400 mt-1">PDF, DOC, or Images (Max 10MB)</p>
+                <p className="text-gray-600">Click to upload asset data file</p>
+                <p className="text-gray-400 mt-1">CSV or Excel files (Max 10MB)</p>
               </div>
+              {isUploading && (
+                <p className="text-sm text-blue-600">Uploading file, please wait...</p>
+              )}
+              {uploadStatus && (
+                <p className={`text-sm ${uploadStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+                  {uploadStatus.message}
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">

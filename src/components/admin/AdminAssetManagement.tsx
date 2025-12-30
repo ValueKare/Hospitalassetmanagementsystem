@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, ChangeEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -121,6 +121,8 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
   const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAssets, setSelectedAssets] = useState<number[]>([]);
 
   const handleAddAsset = (e: React.FormEvent) => {
@@ -129,13 +131,42 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
     setIsAddAssetOpen(false);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      toast.success(`Importing ${file.name}...`, {
-        description: "Asset data will be processed",
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setIsUploading(true);
+    
+    try {
+      const response = await fetch('http://localhost:5001/api/upload/universal', {
+        method: 'POST',
+        body: formData,
       });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        toast.success(`Successfully uploaded ${result.inserted} assets`, {
+          description: result.errors ? `${result.errors.length} errors occurred` : '',
+        });
+      } else {
+        throw new Error(result.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload file', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred',
+      });
+    } finally {
+      setIsUploading(false);
       setIsImportOpen(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -264,12 +295,28 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="csv-upload">Upload CSV File</Label>
-                          <Input
-                            id="csv-upload"
-                            type="file"
-                            accept=".csv"
-                            onChange={handleImport}
-                          />
+                          <div className="space-y-2">
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              accept=".csv,.xlsx,.xls"
+                              className="hidden"
+                              onChange={handleImport}
+                              disabled={isUploading}
+                              id="csv-upload"
+                            />
+                            <div 
+                              onClick={() => fileInputRef.current?.click()}
+                              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#0F67FF] transition-colors cursor-pointer"
+                            >
+                              <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                              <p className="text-gray-600">Click to upload asset data file</p>
+                              <p className="text-gray-400 mt-1">CSV or Excel files (Max 10MB)</p>
+                            </div>
+                            {isUploading && (
+                              <p className="text-sm text-blue-600">Uploading file, please wait...</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </DialogContent>

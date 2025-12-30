@@ -105,7 +105,7 @@ export default function App() {
   };
 
   const renderAdminDashboard = () => {
-    if (userRole === "super-admin") {
+    if (userRole === "superadmin") {
       return <SuperAdminDashboard onNavigate={handleNavigate} />;
     } else if (userRole === "audit-admin") {
       return <AuditAdminDashboard onNavigate={handleNavigate} />;

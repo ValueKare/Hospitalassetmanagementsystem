@@ -39,7 +39,7 @@ const auditAdminMenu = [
 ];
 
 export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, onLogout }: AdminNavigationSidebarProps) {
-  const menuItems = userRole === "super-admin" ? superAdminMenu : auditAdminMenu;
+  const menuItems = userRole === "superadmin" ? superAdminMenu : auditAdminMenu;
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col shadow-lg">
@@ -57,7 +57,7 @@ export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, on
 
       <div className="p-4 bg-[#E8F0FF] border-b border-gray-200">
         <p className="text-gray-700">
-          {userRole === "super-admin" ? "Super Administrator" : "Audit Administrator"}
+          {userRole === "superadmin" ? "Super Administrator" : "Audit Administrator"}
         </p>
       </div>
 
