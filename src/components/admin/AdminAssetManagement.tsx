@@ -1,5 +1,65 @@
-import { useState, useRef, ChangeEvent } from "react";
+import { useState, useRef, ChangeEvent, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+
+// API Response Types
+interface ApiAsset {
+  id: number;
+  asset: string;
+  asset_description: string;
+  barcode: string;
+  asset_key: string;
+  business_area: string;
+  dc_start: string;
+  class: string;
+  cost_centre: string;
+  quantity: number;
+  status?: string;
+  CoCd?: string;
+  CostOrder?: string;
+  amount?: string;
+  asset_main_no_text?: string;
+  bus_A?: string;
+  depky?: string;
+  description?: string;
+  planned_dep?: string;
+  sno?: string | null;
+  use_percentage?: string;
+  createdAt?: string;
+}
+
+interface ApiResponse {
+  total: number;
+  data: ApiAsset[];
+}
+
+// Frontend Asset Type - Consistent with API structure
+interface Asset {
+  // Required fields matching API
+  id: number;
+  asset_id: string; // maps to API 'asset'
+  asset_description: string;
+  serial_number: string; // maps to API 'barcode'
+  model_number: string; // maps to API 'asset_key'
+  location: string; // maps to API 'business_area'
+  status: string;
+  last_maintenance: string; // maps to API 'dc_start'
+  class: string;
+  cost_centre: string;
+  quantity: number;
+  
+  // Optional fields matching API naming
+  co_cd: string | null; // maps to API 'CoCd'
+  cost_order: string | null; // maps to API 'CostOrder'
+  amount: string | null;
+  asset_main_no: string | null; // maps to API 'asset_main_no_text'
+  bus_area: string | null; // maps to API 'bus_A'
+  department_key: string | null; // maps to API 'depky'
+  description: string | null;
+  planned_depreciation: string | null; // maps to API 'planned_dep'
+  serial_no: string | null; // maps to API 'sno'
+  use_percentage: string | null;
+  created_at: string | null; // maps to API 'createdAt'
+}
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
@@ -44,6 +104,7 @@ import {
   Layers,
   DollarSign,
   Calendar,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 
@@ -124,11 +185,172 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAssets, setSelectedAssets] = useState<number[]>([]);
+  const [assets, setAssets] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  const handleAddAsset = (e: React.FormEvent) => {
+  // Fetch assets from API with proper typing
+  const fetchAssets = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('http://localhost:5001/api/sql/assets/all');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch assets: ${response.status} ${response.statusText}`);
+      }
+      
+      const responseData: ApiResponse = await response.json();
+      console.log('API Response:', responseData);
+      
+      // Validate response structure
+      if (!responseData.data || !Array.isArray(responseData.data)) {
+        throw new Error('Invalid data format received from server: missing or invalid data array');
+      }
+      
+      // Transform and validate each asset
+      const formattedAssets = responseData.data
+        .filter(asset => asset.asset && asset.asset_description) // Filter out invalid assets
+        .map(asset => ({
+          // Required fields with defaults
+          id: asset.id,
+          asset_id: asset.asset,
+          asset_description: asset.asset_description,
+          serial_number: asset.barcode || '',
+          model_number: asset.asset_key || '',
+          location: asset.business_area || 'Unknown',
+          status: asset.status || 'Active',
+          last_maintenance: asset.dc_start || '',
+          class: asset.class || '',
+          cost_centre: asset.cost_centre || '',
+          quantity: asset.quantity || 1,
+          
+          // Optional fields with null defaults
+          co_cd: asset.CoCd || null,
+          cost_order: asset.CostOrder || null,
+          amount: asset.amount || null,
+          asset_main_no: asset.asset_main_no_text || null,
+          bus_area: asset.bus_A || null,
+          department_key: asset.depky || null,
+          description: asset.description || null,
+          planned_depreciation: asset.planned_dep || null,
+          serial_no: asset.sno || null,
+          use_percentage: asset.use_percentage || null,
+          created_at: asset.createdAt || null
+        } as Asset));
+      
+      console.log('Formatted Assets:', formattedAssets);
+      setAssets(formattedAssets);
+    } catch (err) {
+      console.error('Error fetching assets:', err);
+      setError('Failed to load assets. Please try again.');
+      toast.error('Failed to load assets');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load assets on component mount
+  useEffect(() => {
+    fetchAssets();
+  }, []);
+
+  // Helper functions for API consistency
+  const assetToApiFormat = (asset: Asset): Partial<ApiAsset> => {
+    return {
+      asset: asset.asset_id,
+      asset_description: asset.asset_description,
+      barcode: asset.serial_number,
+      asset_key: asset.model_number,
+      business_area: asset.location,
+      status: asset.status,
+      dc_start: asset.last_maintenance,
+      class: asset.class,
+      cost_centre: asset.cost_centre,
+      quantity: asset.quantity,
+      CoCd: asset.co_cd || undefined,
+      CostOrder: asset.cost_order || undefined,
+      amount: asset.amount || undefined,
+      asset_main_no_text: asset.asset_main_no || undefined,
+      bus_A: asset.bus_area || undefined,
+      depky: asset.department_key || undefined,
+      description: asset.description || undefined,
+      planned_dep: asset.planned_depreciation || undefined,
+      sno: asset.serial_no || undefined,
+      use_percentage: asset.use_percentage || undefined,
+    };
+  };
+
+  // Form interface for adding new assets
+  interface AssetFormData {
+    asset_id: string;
+    asset_description: string;
+    serial_number: string;
+    model_number: string;
+    location: string;
+    status: string;
+    last_maintenance: string;
+    class: string;
+    cost_centre: string;
+    quantity: number;
+    co_cd: string;
+    cost_order: string;
+    amount: string;
+    asset_main_no: string;
+    bus_area: string;
+    department_key: string;
+    description: string;
+    planned_depreciation: string;
+    serial_no: string;
+    use_percentage: string;
+  }
+
+  const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Asset added successfully!");
-    setIsAddAssetOpen(false);
+    
+    // Create new asset object from form data
+    const newAsset: Asset = {
+      id: 0, // Will be set by backend
+      asset_id: '', // Will be populated from form
+      asset_description: '',
+      serial_number: '',
+      model_number: '',
+      location: '',
+      status: 'Active',
+      last_maintenance: '',
+      class: '',
+      cost_centre: '',
+      quantity: 1,
+      co_cd: null,
+      cost_order: null,
+      amount: null,
+      asset_main_no: null,
+      bus_area: null,
+      department_key: null,
+      description: null,
+      planned_depreciation: null,
+      serial_no: null,
+      use_percentage: null,
+      created_at: null,
+    };
+
+    try {
+      const apiData = assetToApiFormat(newAsset);
+      
+      // TODO: Implement actual API call to create asset
+      // const response = await fetch('http://localhost:5001/api/assets', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(apiData)
+      // });
+      
+      toast.success("Asset added successfully!");
+      setIsAddAssetOpen(false);
+      await fetchAssets(); // Refresh the list
+    } catch (error) {
+      console.error('Error adding asset:', error);
+      toast.error('Failed to add asset');
+    }
   };
 
   const handleImport = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -152,6 +374,8 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
         toast.success(`Successfully uploaded ${result.inserted} assets`, {
           description: result.errors ? `${result.errors.length} errors occurred` : '',
         });
+        // Refresh the assets list after successful import
+        await fetchAssets();
       } else {
         throw new Error(result.message || 'Upload failed');
       }
@@ -181,7 +405,8 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
   };
 
   const handleExport = () => {
-    toast.success("Exporting asset data to CSV...");
+    // Export logic here
+    toast.success("Exporting asset data...");
   };
 
   const toggleAssetSelection = (assetId: number) => {
@@ -190,6 +415,79 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
         ? prev.filter((id) => id !== assetId)
         : [...prev, assetId]
     );
+  };
+
+  // Update the table body to use the API data
+  const renderTableBody = () => {
+    if (isLoading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={11} className="text-center py-8">
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (error) {
+      return (
+        <TableRow>
+          <TableCell colSpan={11} className="text-center py-8 text-red-500">
+            {error}
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (filteredAssets.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={11} className="text-center py-8 text-gray-500">
+            No assets found
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return filteredAssets.map((asset) => (
+      <TableRow key={asset.id}>
+        <TableCell>
+          <input
+            type="checkbox"
+            checked={selectedAssets.includes(asset.id)}
+            onChange={() => toggleAssetSelection(asset.id)}
+          />
+        </TableCell>
+        <TableCell>{asset.asset}</TableCell>
+        <TableCell className="font-medium">{asset.asset_description}</TableCell>
+        <TableCell>{asset.class}</TableCell>
+        <TableCell>{asset.cost_centre}</TableCell>
+        <TableCell>{asset.business_area}</TableCell>
+        <TableCell>{asset.quantity}</TableCell>
+        <TableCell>₹{parseFloat(asset.amount || '0').toLocaleString()}</TableCell>
+        <TableCell>
+          <Badge variant="outline">
+            {asset.depky} ({asset.use_percentage}%)
+          </Badge>
+        </TableCell>
+        <TableCell>{asset.barcode || 'N/A'}</TableCell>
+        <TableCell>
+          <div className="flex space-x-2">
+            <Button size="sm" variant="outline">
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="outline">
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="outline">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    ));
   };
 
   const getStatusBadge = (status: string) => {
@@ -205,10 +503,10 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
     }
   };
 
-  const filteredAssets = mockAssets.filter((asset) => {
+  const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
-      asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.assetId.toLowerCase().includes(searchQuery.toLowerCase());
+      asset.asset_description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      asset.asset_id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesEntity = filterEntity === "all" || asset.entity === filterEntity;
     const matchesStatus = filterStatus === "all" || asset.status === filterStatus;
     return matchesSearch && matchesEntity && matchesStatus;
@@ -362,69 +660,57 @@ export function AdminAssetManagement({ onNavigate }: AdminAssetManagementProps) 
                         />
                       </TableHead>
                       <TableHead>Asset ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Entity</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Department</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead>Cost Centre</TableHead>
+                      <TableHead>Business Area</TableHead>
                       <TableHead>Quantity</TableHead>
-                      <TableHead>Cost</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Depreciation</TableHead>
                       <TableHead>Barcode</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAssets.map((asset) => (
-                      <TableRow key={asset.id}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={selectedAssets.includes(asset.id)}
-                            onChange={() => toggleAssetSelection(asset.id)}
-                          />
-                        </TableCell>
-                        <TableCell className="text-gray-900">{asset.assetId}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-gray-900">{asset.name}</p>
-                            <p className="text-gray-500">{asset.category}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-gray-600">{asset.entity}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-gray-900">{asset.building}</p>
-                            <p className="text-gray-500">{asset.floor}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-gray-600">{asset.department}</TableCell>
-                        <TableCell className="text-gray-900">{asset.quantity}</TableCell>
-                        <TableCell className="text-gray-900">
-                          ₹{(asset.cost / 100000).toFixed(1)}L
-                        </TableCell>
-                        <TableCell>{getStatusBadge(asset.status)}</TableCell>
-                        <TableCell>
-                          {asset.hasBarcode ? (
-                            <Badge className="bg-green-100 text-green-800">✓ Yes</Badge>
-                          ) : (
-                            <Badge className="bg-gray-100 text-gray-800">✗ No</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={11} className="text-center py-8">
+                          <div className="flex justify-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : error ? (
+                      <TableRow>
+                        <TableCell colSpan={11} className="text-center py-8 text-red-500">
+                          {error}
+                        </TableCell>
+                      </TableRow>
+                    ) : assets.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={11} className="text-center py-8 text-gray-500">
+                          No assets found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      assets.map((asset) => (
+                        <TableRow key={asset.id}>
+                          <TableCell className="font-medium">{asset.asset_id}</TableCell>
+                          <TableCell>{asset.asset_description}</TableCell>
+                          <TableCell>{asset.serial_number || '-'}</TableCell>
+                          <TableCell>{asset.model_number || '-'}</TableCell>
+                          <TableCell>{asset.location || '-'}</TableCell>
+                          <TableCell>{asset.status ? getStatusBadge(asset.status) : '-'}</TableCell>
+                          <TableCell>{asset.last_maintenance || '-'}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <span className="sr-only">Edit</span>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LoginScreen } from "./components/LoginScreen";
 import { AdminNavigationSidebar } from "./components/AdminNavigationSidebar";
 import { UserNavigationSidebar } from "./components/UserNavigationSidebar";
@@ -84,6 +84,63 @@ export default function App() {
   const [userPanel, setUserPanel] = useState<string>(""); // "admin" or "user"
   const [selectedAssetId, setSelectedAssetId] = useState<number | undefined>();
 
+  // Check for existing authentication on app load
+  useEffect(() => {
+    const checkAuth = () => {
+      const accessToken = localStorage.getItem('accessToken');
+      const user = localStorage.getItem('user');
+      const expiresIn = localStorage.getItem('expiresIn');
+      const loginTime = localStorage.getItem('loginTime');
+      
+      if (accessToken && user && expiresIn) {
+        try {
+          const userData = JSON.parse(user);
+          const expirationDuration = parseInt(expiresIn) * 1000; // Convert to milliseconds
+          const loginTimestamp = loginTime ? parseInt(loginTime) : Date.now();
+          const expirationTime = loginTimestamp + expirationDuration;
+          const currentTime = Date.now();
+          
+          console.log('Token expiration check:', {
+            loginTimestamp,
+            expirationDuration,
+            expirationTime,
+            currentTime,
+            isExpired: currentTime >= expirationTime,
+            timeRemaining: expirationTime - currentTime
+          });
+          
+          // Check if token is still valid (with 5-minute buffer)
+          if (currentTime < (expirationTime - 300000)) { // 5 minutes buffer
+            setUserRole(userData.role);
+            setUserPanel(userData.panel);
+            setCurrentScreen("dashboard");
+            console.log('User session restored successfully');
+          } else {
+            // Token expired, clear localStorage
+            console.log('Token expired, clearing session');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            localStorage.removeItem('hospital');
+            localStorage.removeItem('expiresIn');
+            localStorage.removeItem('loginTime');
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+          // Clear corrupted data
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          localStorage.removeItem('hospital');
+          localStorage.removeItem('expiresIn');
+          localStorage.removeItem('loginTime');
+        }
+      }
+    };
+    
+    checkAuth();
+  }, []);
+
   const handleLogin = (role: string, panel: string) => {
     setUserRole(role);
     setUserPanel(panel);
@@ -98,6 +155,15 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    // Clear localStorage
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('hospital');
+    localStorage.removeItem('expiresIn');
+    localStorage.removeItem('loginTime');
+    
+    // Reset state
     setCurrentScreen("login");
     setUserRole("");
     setUserPanel("");

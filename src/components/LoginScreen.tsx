@@ -42,6 +42,7 @@ const storeAuthData = (response: any) => {
   localStorage.setItem('user', JSON.stringify(response.data.user));
   localStorage.setItem('hospital', JSON.stringify(response.data.hospital));
   localStorage.setItem('expiresIn', response.data.expiresIn.toString());
+  localStorage.setItem('loginTime', Date.now().toString());
 };
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
@@ -64,7 +65,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
       //   ? "http://localhost:5001/api/auth/hospital-admin/login"
       //   : "http://localhost:5001/api/auth/user/login";
       // const apiUrl = "http://localhost:5001/api/auth/login";
-      const apiUrl = "https://ff9hq7hk-5001.inc1.devtunnels.ms/api/auth/login";
+      const apiUrl = "http://localhost:5001/api/auth/login";
 
       const requestBody: any = {
         organizationId,
