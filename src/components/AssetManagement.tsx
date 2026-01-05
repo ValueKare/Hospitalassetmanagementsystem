@@ -4,7 +4,13 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Label } from "./ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import {
   Table,
   TableBody,
@@ -22,67 +28,64 @@ import {
   Plus,
   Upload,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 interface AssetManagementProps {
   onNavigate: (screen: string, assetId?: number) => void;
 }
 
+/* ================= SAMPLE DATA (INDUSTRY AGNOSTIC) ================= */
+
 const assets = [
   {
     id: 1,
     assetId: "AST-2024-001",
-    name: "MRI Scanner",
-    model: "Siemens MAGNETOM Vida 3T",
-    department: "Radiology",
-    vendor: "Siemens Healthineers",
+    name: "Industrial CNC Machine",
+    model: "HAAS VF-2",
+    department: "Manufacturing",
+    vendor: "HAAS Automation",
     status: "Active",
-    warranty: "2025-12-31",
-    cost: 2500000,
+    warranty: "2026-12-31",
+    cost: 3200000,
   },
   {
     id: 2,
     assetId: "AST-2024-002",
-    name: "CT Scanner",
-    model: "GE Revolution HD",
-    department: "Radiology",
-    vendor: "GE Healthcare",
+    name: "IT Server Rack",
+    model: "Dell PowerEdge R750",
+    department: "IT Infrastructure",
+    vendor: "Dell Technologies",
     status: "Under Maintenance",
-    warranty: "2024-11-15",
+    warranty: "2025-08-15",
     cost: 1800000,
   },
   {
     id: 3,
     assetId: "AST-2024-003",
-    name: "Ventilator",
-    model: "Dräger Evita V800",
-    department: "ICU",
-    vendor: "Dräger Medical",
+    name: "Forklift",
+    model: "Toyota 8FGCU25",
+    department: "Warehouse",
+    vendor: "Toyota Industries",
     status: "Active",
-    warranty: "2026-03-20",
-    cost: 85000,
+    warranty: "2027-03-20",
+    cost: 950000,
   },
   {
     id: 4,
     assetId: "AST-2024-004",
-    name: "Blood Gas Analyzer",
-    model: "Radiometer ABL90 FLEX",
-    department: "Laboratory",
-    vendor: "Radiometer",
+    name: "Quality Testing Machine",
+    model: "Instron 5985",
+    department: "Quality Control",
+    vendor: "Instron",
     status: "Calibration Due",
     warranty: "2024-10-30",
-    cost: 45000,
-  },
-  {
-    id: 5,
-    assetId: "AST-2024-005",
-    name: "Surgical Table",
-    model: "Steris Harmony",
-    department: "Surgery",
-    vendor: "Steris Corporation",
-    status: "Active",
-    warranty: "2025-06-15",
-    cost: 120000,
+    cost: 780000,
   },
 ];
 
@@ -92,8 +95,9 @@ export function AssetManagement({ onNavigate }: AssetManagementProps) {
   const [filterStatus, setFilterStatus] = useState("all");
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<{success: boolean; message: string} | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<{ success: boolean; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState({
     assetId: "",
     name: "",
@@ -105,13 +109,20 @@ export function AssetManagement({ onNavigate }: AssetManagementProps) {
     tag: "",
   });
 
+  /* ================= FILTER LOGIC ================= */
+
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
       asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.assetId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.model.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDepartment = filterDepartment === "all" || asset.department === filterDepartment;
-    const matchesStatus = filterStatus === "all" || asset.status === filterStatus;
+
+    const matchesDepartment =
+      filterDepartment === "all" || asset.department === filterDepartment;
+
+    const matchesStatus =
+      filterStatus === "all" || asset.status === filterStatus;
+
     return matchesSearch && matchesDepartment && matchesStatus;
   });
 
@@ -128,52 +139,51 @@ export function AssetManagement({ onNavigate }: AssetManagementProps) {
     }
   };
 
+  /* ================= CSV UPLOAD ================= */
+
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
     setIsUploading(true);
     setUploadStatus(null);
 
     try {
-      const response = await fetch('https://ff9hq7hk-5001.inc1.devtunnels.ms/api/upload/universal', {
-        method: 'POST',
-        body: formData,
-        // Don't set Content-Type header, let the browser set it with the correct boundary
-      });
+      const response = await fetch(
+        "https://ff9hq7hk-5001.inc1.devtunnels.ms/api/upload/universal",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const result = await response.json();
-      
+
       if (response.ok) {
         setUploadStatus({
           success: true,
-          message: `Successfully uploaded ${result.inserted} assets. ${result.errors ? `(${result.errors.length} errors)` : ''}`
+          message: `Uploaded ${result.inserted} assets successfully`,
         });
       } else {
-        throw new Error(result.message || 'Upload failed');
+        throw new Error(result.message || "Upload failed");
       }
     } catch (error) {
-      console.error('Upload error:', error);
       setUploadStatus({
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to upload file'
+        message: error instanceof Error ? error.message : "Upload failed",
       });
     } finally {
       setIsUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowAddAsset(false);
-    // Reset form
     setFormData({
       assetId: "",
       name: "",
@@ -186,279 +196,138 @@ export function AssetManagement({ onNavigate }: AssetManagementProps) {
     });
   };
 
+  /* ================= UI ================= */
+
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-gray-900">Asset Management</h1>
-              <p className="text-gray-500">Track and manage all organizational assets</p>
-            </div>
-            <Button onClick={() => setShowAddAsset(true)} className="bg-[#0F67FF] hover:bg-[#0F67FF]/90">
-              <Plus className="h-5 w-5 mr-2" />
-              Add Asset
-            </Button>
+        <div className="px-6 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-gray-900">Asset Management</h1>
+            <p className="text-gray-500">
+              Track and manage assets across departments and organizations
+            </p>
           </div>
+          <Button onClick={() => setShowAddAsset(true)} className="bg-[#0F67FF]">
+            <Plus className="h-5 w-5 mr-2" />
+            Add Asset
+          </Button>
         </div>
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Search and Filters */}
-        <Card className="border-0 shadow-sm">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                  <Input
-                    placeholder="Search by asset ID, name, or model..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  <SelectItem value="Radiology">Radiology</SelectItem>
-                  <SelectItem value="ICU">ICU</SelectItem>
-                  <SelectItem value="Surgery">Surgery</SelectItem>
-                  <SelectItem value="Laboratory">Laboratory</SelectItem>
-                  <SelectItem value="Emergency">Emergency</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Under Maintenance">Under Maintenance</SelectItem>
-                  <SelectItem value="Calibration Due">Calibration Due</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Assets Table */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Assets ({filteredAssets.length})</CardTitle>
+        {/* Filters */}
+        <Card>
+          <CardContent className="pt-6 grid md:grid-cols-4 gap-4">
+            <Input
+              placeholder="Search assets..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+              <SelectTrigger><SelectValue placeholder="Department" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                <SelectItem value="Manufacturing">Manufacturing</SelectItem>
+                <SelectItem value="IT Infrastructure">IT Infrastructure</SelectItem>
+                <SelectItem value="Warehouse">Warehouse</SelectItem>
+                <SelectItem value="Quality Control">Quality Control</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Under Maintenance">Under Maintenance</SelectItem>
+                <SelectItem value="Calibration Due">Calibration Due</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Assets ({filteredAssets.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Asset ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Model</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Warranty</TableHead>
-                    <TableHead>Cost</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Asset ID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Model</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Warranty</TableHead>
+                  <TableHead>Cost</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAssets.map((asset) => (
+                  <TableRow key={asset.id}>
+                    <TableCell>{asset.assetId}</TableCell>
+                    <TableCell>{asset.name}</TableCell>
+                    <TableCell>{asset.model}</TableCell>
+                    <TableCell>{asset.department}</TableCell>
+                    <TableCell>{asset.vendor}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(asset.status)}>
+                        {asset.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{asset.warranty}</TableCell>
+                    <TableCell>₹{asset.cost.toLocaleString()}</TableCell>
+                    <TableCell className="text-right flex gap-2 justify-end">
+                      <Button size="sm" variant="ghost" onClick={() => onNavigate("asset-detail", asset.id)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost"><Edit className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost"><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAssets.map((asset) => (
-                    <TableRow key={asset.id} className="hover:bg-gray-50">
-                      <TableCell>{asset.assetId}</TableCell>
-                      <TableCell>{asset.name}</TableCell>
-                      <TableCell className="text-gray-600">{asset.model}</TableCell>
-                      <TableCell>{asset.department}</TableCell>
-                      <TableCell className="text-gray-600">{asset.vendor}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(asset.status)} variant="outline">
-                          {asset.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{asset.warranty}</TableCell>
-                      <TableCell>${asset.cost.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onNavigate("asset-detail", asset.id)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>
 
       {/* Add Asset Dialog */}
       <Dialog open={showAddAsset} onOpenChange={setShowAddAsset}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Asset</DialogTitle>
-            <DialogDescription>Enter the details of the new asset to add to the system</DialogDescription>
+            <DialogDescription>Enter asset details</DialogDescription>
           </DialogHeader>
+
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="assetId">Asset ID</Label>
-                <Input
-                  id="assetId"
-                  placeholder="AST-2024-XXX"
-                  value={formData.assetId}
-                  onChange={(e) => setFormData({ ...formData, assetId: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Asset Name</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g., MRI Scanner"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
+            <Input placeholder="Asset ID" required />
+            <Input placeholder="Asset Name" required />
+            <Input placeholder="Model" required />
+            <Input placeholder="Vendor" required />
+            <Input type="date" required />
+            <Input type="number" placeholder="Cost" required />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="model">Model</Label>
-                <Input
-                  id="model"
-                  placeholder="e.g., Siemens MAGNETOM"
-                  value={formData.model}
-                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vendor">Vendor</Label>
-                <Input
-                  id="vendor"
-                  placeholder="e.g., Siemens Healthineers"
-                  value={formData.vendor}
-                  onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              hidden
+              onChange={handleFileUpload}
+            />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
-                <Select
-                  value={formData.department}
-                  onValueChange={(value) => setFormData({ ...formData, department: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Radiology">Radiology</SelectItem>
-                    <SelectItem value="ICU">ICU</SelectItem>
-                    <SelectItem value="Surgery">Surgery</SelectItem>
-                    <SelectItem value="Laboratory">Laboratory</SelectItem>
-                    <SelectItem value="Emergency">Emergency</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="warranty">Warranty Expiry</Label>
-                <Input
-                  id="warranty"
-                  type="date"
-                  value={formData.warranty}
-                  onChange={(e) => setFormData({ ...formData, warranty: e.target.value })}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cost">Cost (USD)</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.cost}
-                  onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tag">RFID/Barcode Tag</Label>
-                <Input
-                  id="tag"
-                  placeholder="e.g., RFID-123456"
-                  value={formData.tag}
-                  onChange={(e) => setFormData({ ...formData, tag: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="documents">Upload Asset Data (CSV/Excel)</Label>
-              <input
-                type="file"
-                id="documents"
-                ref={fileInputRef}
-                accept=".csv,.xlsx,.xls"
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#0F67FF] transition-colors cursor-pointer"
-              >
-                <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                <p className="text-gray-600">Click to upload asset data file</p>
-                <p className="text-gray-400 mt-1">CSV or Excel files (Max 10MB)</p>
-              </div>
-              {isUploading && (
-                <p className="text-sm text-blue-600">Uploading file, please wait...</p>
-              )}
-              {uploadStatus && (
-                <p className={`text-sm ${uploadStatus.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {uploadStatus.message}
-                </p>
-              )}
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => setShowAddAsset(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" className="bg-[#0F67FF] hover:bg-[#0F67FF]/90">
-                Add Asset
-              </Button>
-            </div>
+            <Button type="submit" className="w-full bg-[#0F67FF]">
+              Save Asset
+            </Button>
           </form>
         </DialogContent>
       </Dialog>
