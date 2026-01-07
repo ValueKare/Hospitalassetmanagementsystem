@@ -41,6 +41,7 @@ import { Settings } from "./components/Settings";
 import { AssetCategoryManagement } from "./components/user/AssetCategoryManagement";
 import { UserAuditManagement } from "./components/user/UserAuditManagement";
 import { BuildingFloorManagement } from "./components/user/BuildingFloorManagement";
+import { Dashboard } from "./components/Dashboard";
 
 import { Toaster } from "./components/ui/sonner";
 
@@ -240,7 +241,7 @@ export default function App() {
   const renderUserContent = () => {
     switch (currentScreen) {
       case "dashboard":
-        return renderUserDashboard();
+        return <Dashboard onNavigate={handleNavigate} userRole={userRole} />;
       case "assets":
       case "user-assets":
       case "add-asset":
@@ -279,7 +280,7 @@ export default function App() {
       case "cfo-dashboard":
         return <CFODashboard onNavigate={handleNavigate} cfoName="Lisa Anderson" />;
       default:
-        return renderUserDashboard();
+        return <Dashboard onNavigate={handleNavigate} userRole={userRole} />;
     }
   };
 

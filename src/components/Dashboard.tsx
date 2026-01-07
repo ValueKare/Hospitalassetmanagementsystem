@@ -1,8 +1,119 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Alert, AlertDescription } from "./ui/alert";
+
+// API configuration
+const API_BASE_URL = "http://localhost:5001/api/dashboard";
+
+// API functions
+export const getDashboardSummary = async () => {
+  try {
+    console.log('Fetching summary from:', `${API_BASE_URL}/summary`);
+    const response = await fetch(`${API_BASE_URL}/summary`);
+    console.log('Summary response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Summary API error response:', errorText);
+      throw new Error(`Failed to fetch dashboard summary: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Summary data received:', data);
+    return data;
+  } catch (error) {
+    console.error('Summary API error:', error);
+    throw error;
+  }
+};
+
+export const getAssetsByDepartment = async () => {
+  try {
+    console.log('Fetching assets by department from:', `${API_BASE_URL}/assets-by-department`);
+    const response = await fetch(`${API_BASE_URL}/assets-by-department`);
+    console.log('Department response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Department API error response:', errorText);
+      throw new Error(`Failed to fetch assets by department: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Department data received:', data);
+    return data;
+  } catch (error) {
+    console.error('Department API error:', error);
+    throw error;
+  }
+};
+
+export const getUtilizationData = async () => {
+  try {
+    console.log('Fetching utilization from:', `${API_BASE_URL}/utilization`);
+    const response = await fetch(`${API_BASE_URL}/utilization`);
+    console.log('Utilization response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Utilization API error response:', errorText);
+      throw new Error(`Failed to fetch utilization data: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Utilization data received:', data);
+    return data;
+  } catch (error) {
+    console.error('Utilization API error:', error);
+    throw error;
+  }
+};
+
+export const getCostTrends = async () => {
+  try {
+    console.log('Fetching cost trends from:', `${API_BASE_URL}/cost-trends`);
+    const response = await fetch(`${API_BASE_URL}/cost-trends`);
+    console.log('Cost trends response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Cost trends API error response:', errorText);
+      throw new Error(`Failed to fetch cost trends: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Cost trends data received:', data);
+    return data;
+  } catch (error) {
+    console.error('Cost trends API error:', error);
+    throw error;
+  }
+};
+
+export const getDashboardAlerts = async () => {
+  try {
+    console.log('Fetching alerts from:', `${API_BASE_URL}/alerts`);
+    const response = await fetch(`${API_BASE_URL}/alerts`);
+    console.log('Alerts response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Alerts API error response:', errorText);
+      throw new Error(`Failed to fetch dashboard alerts: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Alerts data received:', data);
+    return data;
+  } catch (error) {
+    console.error('Alerts API error:', error);
+    throw error;
+  }
+};
+
+
 import {
   BarChart,
   Bar,
@@ -36,39 +147,189 @@ interface DashboardProps {
   userRole: string;
 }
 
-const costData = [
-  { month: "Jan", cost: 45000, maintenance: 12000 },
-  { month: "Feb", cost: 52000, maintenance: 15000 },
-  { month: "Mar", cost: 48000, maintenance: 11000 },
-  { month: "Apr", cost: 61000, maintenance: 18000 },
-  { month: "May", cost: 55000, maintenance: 14000 },
-  { month: "Jun", cost: 67000, maintenance: 19000 },
-];
+// TypeScript interfaces for API responses
+interface DashboardSummary {
+  totalAssets: number;
+  underMaintenance: number;
+  amcDue: number;
+  utilizationRate: number;
+}
 
-const departmentData = [
-  { name: "Radiology", value: 450, color: "#0F67FF" },
-  { name: "ICU", value: 320, color: "#10B981" },
-  { name: "Surgery", value: 280, color: "#F59E0B" },
-  { name: "Emergency", value: 180, color: "#8B5CF6" },
-  { name: "Laboratory", value: 150, color: "#EF4444" },
-];
+interface DepartmentData {
+  _id: string;
+  value: number;
+}
 
-const utilizationData = [
-  { department: "Radiology", utilization: 92 },
-  { department: "ICU", utilization: 85 },
-  { department: "Surgery", utilization: 78 },
-  { department: "Emergency", utilization: 88 },
-  { department: "Laboratory", utilization: 72 },
-];
+interface TransformedDepartmentData {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface UtilizationData {
+  department: string;
+  utilization: number;
+}
+
+interface CostData {
+  month: number;
+  cost: number;
+  maintenance: number;
+}
+
+interface TransformedCostData {
+  month: string;
+  cost: number;
+  maintenance: number;
+}
+
+interface AlertData {
+  _id: string;
+  assetName: string;
+  departmentName: string;
+  amcEndDate?: string;
+  utilizationStatus?: string;
+}
+
+interface TransformedAlert {
+  id: string | number;
+  type: string;
+  message: string;
+  priority: string;
+}
+
+// Month mapping for cost trends
+const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Colors for departments
+const departmentColors = ["#0F67FF", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4", "#84CC16", "#F97316"];
 
 export function Dashboard({ onNavigate, userRole }: DashboardProps) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<{
+    summary: DashboardSummary | null;
+    departmentData: TransformedDepartmentData[];
+    utilizationData: UtilizationData[];
+    costData: TransformedCostData[];
+    alerts: TransformedAlert[];
+  }>({
+    summary: null,
+    departmentData: [],
+    utilizationData: [],
+    costData: [],
+    alerts: []
+  });
 
-  const alerts = [
-    { id: 1, type: "maintenance", message: "MRI Scanner - Dept. Radiology maintenance due in 3 days", priority: "high" },
-    { id: 2, type: "expiry", message: "Warranty expiring for 5 assets in ICU next month", priority: "medium" },
-    { id: 3, type: "calibration", message: "Blood Gas Analyzer calibration overdue", priority: "high" },
-  ];
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        console.log('=== STARTING DASHBOARD DATA FETCH ===');
+        
+        // Fetch data with individual error handling
+        const results = await Promise.allSettled([
+          getDashboardSummary(),
+          getAssetsByDepartment(),
+          getUtilizationData(),
+          getCostTrends(),
+          getDashboardAlerts()
+        ]);
+
+        // Extract results and handle failures
+        const summary = results[0].status === 'fulfilled' ? results[0].value : null;
+        const departmentData = results[1].status === 'fulfilled' ? results[1].value : [];
+        const utilizationData = results[2].status === 'fulfilled' ? results[2].value : [];
+        const costData = results[3].status === 'fulfilled' ? results[3].value : [];
+        const alerts = results[4].status === 'fulfilled' ? results[4].value : [];
+
+        // Log detailed results
+        console.log('=== RAW API RESULTS ===');
+        console.log('Summary:', summary);
+        console.log('Department Data:', departmentData);
+        console.log('Utilization Data:', utilizationData);
+        console.log('Cost Data:', costData);
+        console.log('Alerts:', alerts);
+
+        // Log any failures
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            console.error(`API ${index} failed:`, result.reason);
+          }
+        });
+
+        // Transform department data for pie chart
+        console.log('=== TRANSFORMING DEPARTMENT DATA ===');
+        const transformedDepartmentData: TransformedDepartmentData[] = Array.isArray(departmentData) ? departmentData.map((item: DepartmentData, index: number) => {
+          console.log(`Transforming item ${index}:`, item);
+          return {
+            name: item._id || 'Unknown',
+            value: item.value,
+            color: departmentColors[index % departmentColors.length]
+          };
+        }) : [];
+        console.log('Transformed department data:', transformedDepartmentData);
+
+        // Transform cost data with month names
+        console.log('=== TRANSFORMING COST DATA ===');
+        const transformedCostData: TransformedCostData[] = Array.isArray(costData) ? costData.map((item: CostData) => {
+          console.log('Transforming cost item:', item);
+          return {
+            month: monthNames[item.month] || `Month ${item.month}`,
+            cost: item.cost || 0,
+            maintenance: item.maintenance || 0
+          };
+        }) : [];
+        console.log('Transformed cost data:', transformedCostData);
+
+        // Transform alerts for notifications
+        console.log('=== TRANSFORMING ALERTS ===');
+        const transformedAlerts: TransformedAlert[] = Array.isArray(alerts) ? alerts.map((alert: AlertData) => {
+          console.log('Transforming alert:', alert);
+          return {
+            id: alert._id || Math.random(),
+            type: alert.amcEndDate ? 'warranty' : 'maintenance',
+            message: alert.amcEndDate 
+              ? `Warranty expiring for ${alert.assetName} in ${alert.departmentName}`
+              : `Maintenance required for ${alert.assetName} in ${alert.departmentName}`,
+            priority: 'high'
+          };
+        }) : [];
+        console.log('Transformed alerts:', transformedAlerts);
+
+        // Set final dashboard data
+        const finalData = {
+          summary,
+          departmentData: transformedDepartmentData,
+          utilizationData: Array.isArray(utilizationData) ? utilizationData : [],
+          costData: transformedCostData,
+          alerts: transformedAlerts
+        };
+        
+        console.log('=== FINAL DASHBOARD DATA ===');
+        console.log('Final data being set:', finalData);
+        
+        setDashboardData(finalData);
+        console.log('=== DASHBOARD DATA SET SUCCESSFULLY ===');
+
+      } catch (error) {
+        console.error('=== FETCH ERROR ===');
+        console.error('Failed to fetch dashboard data:', error);
+        // Set empty data on error - no fallback mock data
+        setDashboardData({
+          summary: null,
+          departmentData: [],
+          utilizationData: [],
+          costData: [],
+          alerts: []
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
@@ -106,7 +367,7 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
             <h3>Notifications</h3>
           </div>
           <div className="max-h-96 overflow-y-auto">
-            {alerts.map((alert) => (
+            {dashboardData.alerts.map((alert) => (
               <div key={alert.id} className="p-4 border-b border-gray-100 hover:bg-gray-50">
                 <div className="flex items-start space-x-3">
                   <AlertTriangle className={`h-5 w-5 ${alert.priority === 'high' ? 'text-red-500' : 'text-yellow-500'} mt-0.5`} />
@@ -125,11 +386,17 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
       )}
 
       <div className="p-6 space-y-6">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-gray-500">Loading dashboard data...</div>
+          </div>
+        ) : (
+          <>
         {/* Alert Banner */}
         <Alert className="bg-red-50 border-red-200">
           <AlertTriangle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-800">
-            <strong>3 urgent items</strong> require your attention: 2 maintenance overdue, 1 calibration needed
+            <strong>{dashboardData.alerts.length} urgent items</strong> require your attention: {dashboardData.summary?.underMaintenance || 0} maintenance overdue, {dashboardData.alerts.filter(a => a.type === 'expiry').length} warranty expiring
           </AlertDescription>
         </Alert>
 
@@ -140,7 +407,7 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-500">Total Assets</p>
-                  <h2 className="mt-2 text-gray-900">1,380</h2>
+                  <h2 className="mt-2 text-gray-900">{dashboardData.summary?.totalAssets?.toLocaleString() || '0'}</h2>
                   <p className="text-green-600 mt-1">
                     <TrendingUp className="inline h-4 w-4 mr-1" />
                     +12% from last month
@@ -158,8 +425,13 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-500">Under Maintenance</p>
-                  <h2 className="mt-2 text-gray-900">47</h2>
-                  <p className="text-gray-600 mt-1">3.4% of total assets</p>
+                  <h2 className="mt-2 text-gray-900">{dashboardData.summary?.underMaintenance || '0'}</h2>
+                  <p className="text-gray-600 mt-1">
+                    {dashboardData.summary?.totalAssets ? 
+                      `${((dashboardData.summary.underMaintenance / dashboardData.summary.totalAssets) * 100).toFixed(1)}%` : 
+                      '0%'
+                    } of total assets
+                  </p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
                   <Wrench className="h-6 w-6 text-yellow-600" />
@@ -173,7 +445,7 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-500">Warranty Expiring</p>
-                  <h2 className="mt-2 text-gray-900">23</h2>
+                  <h2 className="mt-2 text-gray-900">{dashboardData.summary?.amcDue || '0'}</h2>
                   <p className="text-orange-600 mt-1">Within next 30 days</p>
                 </div>
                 <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
@@ -188,8 +460,10 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-500">Utilization Rate</p>
-                  <h2 className="mt-2 text-gray-900">83%</h2>
-                  <p className="text-green-600 mt-1">Optimal range</p>
+                  <h2 className="mt-2 text-gray-900">{dashboardData.summary?.utilizationRate || '0'}%</h2>
+                  <p className={(dashboardData.summary?.utilizationRate || 0) >= 80 ? "text-green-600" : "text-yellow-600"} mt-1>
+                    {(dashboardData.summary?.utilizationRate || 0) >= 80 ? "Optimal range" : "Needs attention"}
+                  </p>
                 </div>
                 <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
                   <Activity className="h-6 w-6 text-green-600" />
@@ -250,7 +524,9 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={costData}>
+                <LineChart data={dashboardData.costData}>
+                  {console.log('=== RENDERING LINE CHART ===')}
+                  {console.log('Line chart data:', dashboardData.costData)}
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="month" stroke="#6B7280" />
                   <YAxis stroke="#6B7280" />
@@ -271,8 +547,10 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
+                  {console.log('=== RENDERING PIE CHART ===')}
+                  {console.log('Pie chart data:', dashboardData.departmentData)}
                   <Pie
-                    data={departmentData}
+                    data={dashboardData.departmentData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -281,9 +559,12 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {departmentData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
+                    {dashboardData.departmentData.map((entry: TransformedDepartmentData, index: number) => {
+                      console.log(`Rendering pie slice ${index}:`, entry);
+                      return (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      );
+                    })}
                   </Pie>
                   <Tooltip />
                 </PieChart>
@@ -299,7 +580,7 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={utilizationData}>
+              <BarChart data={dashboardData.utilizationData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis dataKey="department" stroke="#6B7280" />
                 <YAxis stroke="#6B7280" />
@@ -318,7 +599,7 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {alerts.map((alert) => (
+              {dashboardData.alerts.map((alert: TransformedAlert) => (
                 <div key={alert.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <AlertTriangle className={`h-5 w-5 ${alert.priority === 'high' ? 'text-red-500' : 'text-yellow-500'}`} />
@@ -335,6 +616,8 @@ export function Dashboard({ onNavigate, userRole }: DashboardProps) {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </div>
     </div>
   );

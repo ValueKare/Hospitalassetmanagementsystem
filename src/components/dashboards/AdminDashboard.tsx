@@ -1,8 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
+
+// API configuration
+const API_BASE_URL = "http://localhost:5001";
+
+// API functions
+export const getDashboardSummary = async () => {
+  const response = await fetch(`${API_BASE_URL}/summary`);
+  if (!response.ok) throw new Error('Failed to fetch dashboard summary');
+  return response.json();
+};
+
+export const getAssetsByDepartment = async () => {
+  const response = await fetch(`${API_BASE_URL}/assets-by-department`);
+  if (!response.ok) throw new Error('Failed to fetch assets by department');
+  return response.json();
+};
+
+export const getUtilizationData = async () => {
+  const response = await fetch(`${API_BASE_URL}/utilization`);
+  if (!response.ok) throw new Error('Failed to fetch utilization data');
+  return response.json();
+};
+
+export const getCostTrends = async () => {
+  const response = await fetch(`${API_BASE_URL}/cost-trends`);
+  if (!response.ok) throw new Error('Failed to fetch cost trends');
+  return response.json();
+};
+
+export const getDashboardAlerts = async () => {
+  const response = await fetch(`${API_BASE_URL}/alerts`);
+  if (!response.ok) throw new Error('Failed to fetch dashboard alerts');
+  return response.json();
+};
 import {
   BarChart,
   Bar,
@@ -36,22 +70,62 @@ interface AdminDashboardProps {
   onNavigate: (screen: string) => void;
 }
 
-const costData = [
-  { month: "Jan", cost: 45000, maintenance: 12000 },
-  { month: "Feb", cost: 52000, maintenance: 15000 },
-  { month: "Mar", cost: 48000, maintenance: 11000 },
-  { month: "Apr", cost: 61000, maintenance: 18000 },
-  { month: "May", cost: 55000, maintenance: 14000 },
-  { month: "Jun", cost: 67000, maintenance: 19000 },
-];
+// TypeScript interfaces for API responses
+interface DashboardSummary {
+  totalAssets: number;
+  underMaintenance: number;
+  amcDue: number;
+  utilizationRate: number;
+}
 
-const departmentData = [
-  { name: "Radiology", value: 450, color: "#0F67FF" },
-  { name: "ICU", value: 320, color: "#10B981" },
-  { name: "Surgery", value: 280, color: "#F59E0B" },
-  { name: "Emergency", value: 180, color: "#8B5CF6" },
-  { name: "Laboratory", value: 150, color: "#EF4444" },
-];
+interface DepartmentData {
+  _id: string;
+  value: number;
+}
+
+interface TransformedDepartmentData {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface UtilizationData {
+  department: string;
+  utilization: number;
+}
+
+interface CostData {
+  month: number;
+  cost: number;
+  maintenance: number;
+}
+
+interface TransformedCostData {
+  month: string;
+  cost: number;
+  maintenance: number;
+}
+
+interface AlertData {
+  _id: string;
+  assetName: string;
+  departmentName: string;
+  amcEndDate?: string;
+  utilizationStatus?: string;
+}
+
+interface TransformedAlert {
+  id: string | number;
+  type: string;
+  message: string;
+  priority: string;
+}
+
+// Month mapping for cost trends
+const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Colors for departments
+const departmentColors = ["#0F67FF", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4", "#84CC16", "#F97316"];
 
 const recentActivities = [
   { id: 1, type: "Role Assignment", user: "Sarah Johnson", action: "Assigned as Department Head - Radiology", time: "2 hours ago" },
@@ -62,11 +136,87 @@ const recentActivities = [
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<{
+    summary: DashboardSummary | null;
+    departmentData: TransformedDepartmentData[];
+    utilizationData: UtilizationData[];
+    costData: TransformedCostData[];
+    alerts: TransformedAlert[];
+  }>({
+    summary: null,
+    departmentData: [],
+    utilizationData: [],
+    costData: [],
+    alerts: []
+  });
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const [summary, departmentData, utilizationData, costData, alerts] = await Promise.all([
+          getDashboardSummary(),
+          getAssetsByDepartment(),
+          getUtilizationData(),
+          getCostTrends(),
+          getDashboardAlerts()
+        ]);
+
+        // Transform department data for pie chart
+        const transformedDepartmentData: TransformedDepartmentData[] = departmentData.map((item: DepartmentData, index: number) => ({
+          name: item._id || 'Unknown',
+          value: item.value,
+          color: departmentColors[index % departmentColors.length]
+        }));
+
+        // Transform cost data with month names
+        const transformedCostData: TransformedCostData[] = costData.map((item: CostData) => ({
+          month: monthNames[item.month] || `Month ${item.month}`,
+          cost: item.cost || 0,
+          maintenance: item.maintenance || 0
+        }));
+
+        // Transform alerts for admin notifications
+        const transformedAlerts: TransformedAlert[] = alerts.map((alert: AlertData) => ({
+          id: alert._id || Math.random(),
+          type: alert.amcEndDate ? 'warranty' : 'maintenance',
+          message: alert.amcEndDate 
+            ? `Warranty expiring for ${alert.assetName} in ${alert.departmentName}`
+            : `Maintenance required for ${alert.assetName} in ${alert.departmentName}`,
+          priority: 'high'
+        }));
+
+        setDashboardData({
+          summary,
+          departmentData: transformedDepartmentData,
+          utilizationData,
+          costData: transformedCostData,
+          alerts: transformedAlerts
+        });
+      } catch (error) {
+        console.error('Failed to fetch admin dashboard data:', error);
+        // Set empty data on error - no fallback mock data
+        setDashboardData({
+          summary: null,
+          departmentData: [],
+          utilizationData: [],
+          costData: [],
+          alerts: []
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const notifications = [
     { id: 1, type: "Role Approval", message: "New user registration pending approval", priority: "high" },
     { id: 2, type: "System Update", message: "Maintenance scheduled for tonight 11 PM", priority: "medium" },
     { id: 3, type: "Budget Alert", message: "Radiology department approaching budget limit", priority: "high" },
+    ...dashboardData.alerts.slice(0, 2) // Add real alerts to notifications
   ];
 
   return (
@@ -126,6 +276,12 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       )}
 
       <div className="p-6 space-y-6">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-gray-500">Loading admin dashboard...</div>
+          </div>
+        ) : (
+          <>
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Button
@@ -176,7 +332,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-500">Total Assets</p>
-                  <h2 className="mt-2 text-gray-900">1,380</h2>
+                  <h2 className="mt-2 text-gray-900">{dashboardData.summary?.totalAssets?.toLocaleString() || '0'}</h2>
                   <p className="text-green-600 mt-1">
                     <TrendingUp className="inline h-4 w-4 mr-1" />
                     +12% growth
@@ -194,7 +350,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-500">Departments</p>
-                  <h2 className="mt-2 text-gray-900">8</h2>
+                  <h2 className="mt-2 text-gray-900">{dashboardData.departmentData.length}</h2>
                   <p className="text-gray-600 mt-1">Across hospital</p>
                 </div>
                 <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-50 rounded-lg flex items-center justify-center">
@@ -224,7 +380,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-500">Pending Issues</p>
-                  <h2 className="mt-2 text-gray-900">23</h2>
+                  <h2 className="mt-2 text-gray-900">{dashboardData.alerts.length}</h2>
                   <p className="text-orange-600 mt-1">Require attention</p>
                 </div>
                 <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-50 rounded-lg flex items-center justify-center">
@@ -243,7 +399,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={costData}>
+                <LineChart data={dashboardData.costData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="month" stroke="#6B7280" />
                   <YAxis stroke="#6B7280" />
@@ -264,7 +420,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={departmentData}
+                    data={dashboardData.departmentData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -273,7 +429,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {departmentData.map((entry, index) => (
+                    {dashboardData.departmentData.map((entry: TransformedDepartmentData, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -308,6 +464,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </div>
     </div>
   );
