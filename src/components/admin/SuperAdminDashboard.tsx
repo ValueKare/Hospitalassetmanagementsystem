@@ -3,15 +3,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Button } from "../ui/button";
 import { Building2, Users, Package, ClipboardCheck, Plus, TrendingUp, AlertCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 
 // API configuration
 const API_BASE_URL = "http://localhost:5001/api/dashboard";
 
 // API functions
-export const getDashboardSummary = async () => {
+export const getDashboardSummary = async (hospitalId?: string) => {
   try {
-    console.log('Fetching summary from:', `${API_BASE_URL}/summary`);
-    const response = await fetch(`${API_BASE_URL}/summary`);
+    const url = hospitalId 
+      ? `${API_BASE_URL}/summary?hospitalId=${hospitalId}`
+      : `${API_BASE_URL}/summary`;
+    
+    console.log('Fetching summary from:', url);
+    const response = await fetch(url);
     console.log('Summary response status:', response.status);
     
     if (!response.ok) {
@@ -20,7 +26,7 @@ export const getDashboardSummary = async () => {
       throw new Error(`Failed to fetch dashboard summary: ${response.status} ${errorText}`);
     }
     
-    const data = await response.json();
+    const data: DashboardSummaryResponse = await response.json();
     console.log('Summary data received:', JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
@@ -113,11 +119,51 @@ export const getDashboardAlerts = async () => {
   }
 };
 
+export const getHospitalCount = async () => {
+  try {
+    console.log('Fetching hospital count from:', `${API_BASE_URL}/hospitals`);
+    const response = await fetch(`${API_BASE_URL}/hospitals`);
+    console.log('Hospital count response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Hospital count API error response:', errorText);
+      throw new Error(`Failed to fetch hospital count: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Hospital count data received:', JSON.stringify(data, null, 2));
+    return data;
+  } catch (error) {
+    console.error('Hospital count API error:', error);
+    throw error;
+  }
+};
+
 interface SuperAdminDashboardProps {
   onNavigate: (screen: string) => void;
 }
 
 // TypeScript interfaces for API responses
+interface HospitalInfo {
+  _id: string;
+  hospitalId: string;
+  name: string;
+  entityId: string;
+  location: string;
+}
+
+interface DashboardSummaryResponse {
+  scope: string;
+  hospitalInfo: HospitalInfo;
+  totalAssets: number;
+  activeAssets: number;
+  underMaintenance: number;
+  scrappedAssets: number;
+  amcDue: number;
+  utilizationRate: number;
+}
+
 interface DashboardSummary {
   totalAssets: number;
   underMaintenance: number;
@@ -195,6 +241,9 @@ const auditStatusData = [
 
 export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
   const [loading, setLoading] = useState(true);
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
+  const [hospitalInfo, setHospitalInfo] = useState<HospitalInfo | null>(null);
+  const [hospitalCount, setHospitalCount] = useState<number>(0);
   const [dashboardData, setDashboardData] = useState<{
     summary: DashboardSummary | null;
     departmentData: TransformedDepartmentData[];
@@ -209,31 +258,51 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
     alerts: []
   });
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
         console.log('=== STARTING SUPER ADMIN DASHBOARD DATA FETCH ===');
         
         // Fetch data with individual error handling
         const results = await Promise.allSettled([
-          getDashboardSummary(),
+          getDashboardSummary(selectedHospitalId || undefined),
           getAssetsByDepartment(),
           getUtilizationData(),
           getCostTrends(),
-          getDashboardAlerts()
+          getDashboardAlerts(),
+          getHospitalCount()
         ]);
 
         // Extract results and handle failures
-        const summary = results[0].status === 'fulfilled' ? results[0].value : null;
+        const summaryResponse = results[0].status === 'fulfilled' ? results[0].value : null;
         const departmentData = results[1].status === 'fulfilled' ? results[1].value : [];
         const utilizationData = results[2].status === 'fulfilled' ? results[2].value : [];
         const costData = results[3].status === 'fulfilled' ? results[3].value : [];
         const alerts = results[4].status === 'fulfilled' ? results[4].value : [];
+        const hospitalCountResponse = results[5].status === 'fulfilled' ? results[5].value : null;
+
+        // Set hospital info if available
+        if (summaryResponse?.hospitalInfo) {
+          setHospitalInfo(summaryResponse.hospitalInfo);
+        }
+
+        // Set hospital count if available
+        if (hospitalCountResponse?.count) {
+          setHospitalCount(hospitalCountResponse.count);
+        }
+
+        // Transform summary response to DashboardSummary format
+        const summary: DashboardSummary | null = summaryResponse ? {
+          totalAssets: summaryResponse.totalAssets,
+          underMaintenance: summaryResponse.underMaintenance,
+          amcDue: summaryResponse.amcDue,
+          utilizationRate: summaryResponse.utilizationRate
+        } : null;
 
         // Log detailed results
         console.log('=== RAW API RESULTS ===');
         console.log('Summary:', summary);
+        console.log('Summary Response:', summaryResponse);
         console.log('Department Data:', departmentData);
         console.log('Utilization Data:', utilizationData);
         console.log('Cost Data:', costData);
@@ -264,16 +333,16 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
           console.log('Transforming cost item:', item);
           return {
             month: monthNames[item.month] || `Month ${item.month}`,
-            cost: item.cost || 0,
-            maintenance: item.maintenance || 0
+            cost: item.cost,
+            maintenance: item.maintenance
           };
         }) : [];
         console.log('Transformed cost data:', transformedCostData);
 
-        // Transform alerts for super admin notifications
+        // Transform alerts
         console.log('=== TRANSFORMING ALERTS ===');
-        const transformedAlerts: TransformedAlert[] = Array.isArray(alerts) ? alerts.map((alert: AlertData) => {
-          console.log('Transforming alert:', alert);
+        const transformedAlerts: TransformedAlert[] = Array.isArray(alerts) ? alerts.map((alert: AlertData, index: number) => {
+          console.log(`Transforming alert ${index}:`, alert);
           return {
             id: alert._id || Math.random(),
             type: alert.amcEndDate ? 'warranty' : 'maintenance',
@@ -316,8 +385,12 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
       }
     };
 
+  //   fetchDashboardData();
+  // }, []);
+
+  useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [selectedHospitalId]);
 
   return (
     <div className="flex-1 p-8 bg-[#F9FAFB] min-h-screen">
@@ -329,64 +402,143 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
         <>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-gray-900 mb-2">Super Admin Dashboard</h1>
-        <p className="text-gray-600">Global overview across all hospital entities</p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-gray-900 mb-2">Super Admin Dashboard</h1>
+            <p className="text-gray-600">Global overview across all hospital entities</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="hospital-select">Hospital:</Label>
+              <Input
+                id="hospital-select"
+                placeholder="Enter Hospital ID (e.g., HOSP-0002)"
+                value={selectedHospitalId || ''}
+                onChange={(e) => setSelectedHospitalId(e.target.value)}
+                className="w-64"
+              />
+            </div>
+            <Button 
+              onClick={fetchDashboardData}
+              className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
+            >
+              Refresh
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* Hospital Information */}
+      {hospitalInfo && (
+        <Card className="border-0 shadow-md mb-8">
+          <CardHeader>
+            <CardTitle className="text-gray-900">Hospital Information</CardTitle>
+            <CardDescription>Current hospital details</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Hospital ID</p>
+                <p className="text-lg font-semibold text-gray-900">{hospitalInfo.hospitalId}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Hospital Name</p>
+                <p className="text-lg font-semibold text-gray-900">{hospitalInfo.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Entity ID</p>
+                <p className="text-lg font-semibold text-gray-900">{hospitalInfo.entityId}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Location</p>
+                <p className="text-lg font-semibold text-gray-900">{hospitalInfo.location}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-600">Total Hospitals</CardTitle>
-              <Building2 className="h-5 w-5 text-[#0F67FF]" />
+              <CardTitle className="text-xs text-gray-600">Total Hospitals</CardTitle>
+              <Building2 className="h-4 w-4 text-[#0F67FF]" />
             </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-gray-900">45</p>
-            <p className="text-[#0EB57D] mt-1">+3 this month</p>
+          <CardContent className="pt-0">
+            <p className="text-lg font-semibold text-gray-900">{hospitalCount}</p>
+            <p className="text-xs text-[#0EB57D] mt-1">Registered hospitals</p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-600">Total Assets</CardTitle>
-              <Package className="h-5 w-5 text-[#10B981]" />
+              <CardTitle className="text-xs text-gray-600">Total Assets</CardTitle>
+              <Package className="h-4 w-4 text-[#10B981]" />
             </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-gray-900">{dashboardData.summary?.totalAssets?.toLocaleString() || '0'}</p>
-            <p className="text-[#0EB57D] mt-1">+1,245 this quarter</p>
+          <CardContent className="pt-0">
+            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.totalAssets?.toLocaleString() || '0'}</p>
+            <p className="text-xs text-[#0EB57D] mt-1">Total equipment</p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-600">Active Audits</CardTitle>
-              <ClipboardCheck className="h-5 w-5 text-[#F59E0B]" />
+              <CardTitle className="text-xs text-gray-600">Active Assets</CardTitle>
+              <TrendingUp className="h-4 w-4 text-[#0F67FF]" />
             </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-gray-900">{dashboardData.alerts.length}</p>
-            <p className="text-gray-500 mt-1">Critical issues</p>
+          <CardContent className="pt-0">
+            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.totalAssets?.toLocaleString() || '0'}</p>
+            <p className="text-xs text-[#0EB57D] mt-1">In operation</p>
           </CardContent>
         </Card>
 
         <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-600">Active Users</CardTitle>
-              <Users className="h-5 w-5 text-[#8B5CF6]" />
+              <CardTitle className="text-xs text-gray-600">Under Maintenance</CardTitle>
+              <AlertCircle className="h-4 w-4 text-[#F59E0B]" />
             </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-gray-900">1,256</p>
-            <p className="text-[#0EB57D] mt-1">+48 this month</p>
+          <CardContent className="pt-0">
+            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.underMaintenance?.toLocaleString() || '0'}</p>
+            <p className="text-xs text-gray-500 mt-1">Service required</p>
           </CardContent>
         </Card>
-      </div>
+
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs text-gray-600">AMC Due</CardTitle>
+              <ClipboardCheck className="h-4 w-4 text-[#EF4444]" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.amcDue?.toLocaleString() || '0'}</p>
+            <p className="text-xs text-gray-500 mt-1">Contract renewal</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs text-gray-600">Utilization Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-[#10B981]" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.utilizationRate || 0}%</p>
+            <p className="text-xs text-[#0EB57D] mt-1">Efficiency rate</p>
+          </CardContent>
+        </Card>
+
+        </div>
 
       {/* Quick Actions */}
       <Card className="border-0 shadow-md mb-8">
