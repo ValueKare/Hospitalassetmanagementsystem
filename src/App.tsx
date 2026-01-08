@@ -84,6 +84,7 @@ export default function App() {
   const [userRole, setUserRole] = useState<string>("");
   const [userPanel, setUserPanel] = useState<string>(""); // "admin" or "user"
   const [selectedAssetId, setSelectedAssetId] = useState<number | undefined>();
+  const [selectedEntity, setSelectedEntity] = useState<any>(null);
 
   // Check for existing authentication on app load
   useEffect(() => {
@@ -169,15 +170,20 @@ export default function App() {
     setUserRole("");
     setUserPanel("");
     setSelectedAssetId(undefined);
+    setSelectedEntity(null);
+  };
+
+  const handleEntityChange = (entity: any) => {
+    setSelectedEntity(entity);
   };
 
   const renderAdminDashboard = () => {
     if (userRole === "superadmin") {
-      return <SuperAdminDashboard onNavigate={handleNavigate} />;
+      return <SuperAdminDashboard onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
     } else if (userRole === "audit-admin") {
       return <AuditAdminDashboard onNavigate={handleNavigate} />;
     }
-    return <SuperAdminDashboard onNavigate={handleNavigate} />;
+    return <SuperAdminDashboard onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
   };
 
   const renderUserDashboard = () => {
@@ -226,7 +232,7 @@ export default function App() {
       case "entity-setup":
         return <EntitySetup onNavigate={handleNavigate} />;
       case "admin-assets":
-        return <AdminAssetManagement onNavigate={handleNavigate} />;
+        return <AdminAssetManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
       case "audit-management":
         return <AuditManagement onNavigate={handleNavigate} />;
       case "admin-reports":
@@ -296,6 +302,7 @@ export default function App() {
               userRole={userRole}
               onNavigate={handleNavigate}
               onLogout={handleLogout}
+              onEntityChange={handleEntityChange}
             />
           ) : (
             <UserNavigationSidebar

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { Building2, Users, Package, ClipboardCheck, Plus, TrendingUp, AlertCircle } from "lucide-react";
+import { Building2, Users, Package, ClipboardCheck, Plus, TrendingUp, AlertCircle, Building } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 // API configuration
 const API_BASE_URL = "http://localhost:5001/api/dashboard";
@@ -140,11 +141,52 @@ export const getHospitalCount = async () => {
   }
 };
 
+export const getHospitalsByEntity = async (entityCode?: string) => {
+  try {
+    const url = entityCode 
+      ? `${API_BASE_URL}/hospitals?entityCode=${entityCode}`
+      : `${API_BASE_URL}/hospitals`;
+    
+    console.log('Fetching hospitals by entity from:', url);
+    const response = await fetch(url);
+    console.log('Entity hospitals response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Entity hospitals API error response:', errorText);
+      throw new Error(`Failed to fetch entity hospitals: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Entity hospitals data received:', JSON.stringify(data, null, 2));
+    return data;
+  } catch (error) {
+    console.error('Entity hospitals API error:', error);
+    throw error;
+  }
+};
+
 interface SuperAdminDashboardProps {
   onNavigate: (screen: string) => void;
+  selectedEntity?: any;
 }
 
 // TypeScript interfaces for API responses
+interface EntityHospitalsResponse {
+  success: boolean;
+  count: number;
+  scope: string;
+  entityCode: string;
+  entityName: string;
+  hospitals: Array<{
+    _id: string;
+    hospitalId?: string;
+    name: string;
+    location: string;
+    contactEmail: string;
+  }>;
+}
+
 interface HospitalInfo {
   _id: string;
   hospitalId: string;
@@ -200,11 +242,20 @@ interface TransformedCostData {
 }
 
 interface AlertData {
-  _id: string;
   assetName: string;
+  assetCode: string;
+  hospitalName: string;
+  hospitalLocation: string;
   departmentName: string;
-  amcEndDate?: string;
-  utilizationStatus?: string;
+  buildingName: string;
+  floorName: string;
+  amcExpiryDate: string;
+  utilizationStatus: string;
+  status: string;
+  purchaseCost: number;
+  maintenanceCost: number;
+  alertType: string;
+  daysToExpiry: number;
 }
 
 interface TransformedAlert {
@@ -212,6 +263,17 @@ interface TransformedAlert {
   type: string;
   message: string;
   priority: string;
+  details?: {
+    hospitalName: string;
+    hospitalLocation: string;
+    departmentName: string;
+    buildingName: string;
+    floorName: string;
+    daysToExpiry: number;
+    purchaseCost: number;
+    maintenanceCost: number;
+    utilizationStatus: string;
+  };
 }
 
 // Month mapping for cost trends
@@ -239,11 +301,13 @@ const auditStatusData = [
   { hospital: "Community Hospital", status: "In Progress", assets: 756, completion: 45 },
 ];
 
-export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
+export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
   const [hospitalInfo, setHospitalInfo] = useState<HospitalInfo | null>(null);
   const [hospitalCount, setHospitalCount] = useState<number>(0);
+  const [entityHospitals, setEntityHospitals] = useState<any[]>([]);
+  const [selectedHospital, setSelectedHospital] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<{
     summary: DashboardSummary | null;
     departmentData: TransformedDepartmentData[];
@@ -270,7 +334,7 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
           getUtilizationData(),
           getCostTrends(),
           getDashboardAlerts(),
-          getHospitalCount()
+          selectedEntity ? getHospitalsByEntity(selectedEntity.code) : getHospitalCount()
         ]);
 
         // Extract results and handle failures
@@ -278,18 +342,32 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
         const departmentData = results[1].status === 'fulfilled' ? results[1].value : [];
         const utilizationData = results[2].status === 'fulfilled' ? results[2].value : [];
         const costData = results[3].status === 'fulfilled' ? results[3].value : [];
-        const alerts = results[4].status === 'fulfilled' ? results[4].value : [];
-        const hospitalCountResponse = results[5].status === 'fulfilled' ? results[5].value : null;
+        const alertsResponse = results[4].status === 'fulfilled' ? results[4].value : null;
+        const hospitalsResponse = results[5].status === 'fulfilled' ? results[5].value : null;
 
         // Set hospital info if available
         if (summaryResponse?.hospitalInfo) {
           setHospitalInfo(summaryResponse.hospitalInfo);
         }
 
-        // Set hospital count if available
-        if (hospitalCountResponse?.count) {
-          setHospitalCount(hospitalCountResponse.count);
+        // Set hospital count from entity hospitals or global count
+        if (hospitalsResponse?.count !== undefined) {
+          setHospitalCount(hospitalsResponse.count);
         }
+
+        // Store entity hospitals for dropdown
+        if (hospitalsResponse?.hospitals) {
+          setEntityHospitals(hospitalsResponse.hospitals);
+          // Auto-select first hospital if none selected
+          if (hospitalsResponse.hospitals.length > 0 && !selectedHospital) {
+            const firstHospital = hospitalsResponse.hospitals[0];
+            setSelectedHospital(firstHospital);
+            setSelectedHospitalId(firstHospital.hospitalId || firstHospital._id);
+          }
+        }
+
+        // Extract alerts array from response
+        const alerts = alertsResponse?.alerts || [];
 
         // Transform summary response to DashboardSummary format
         const summary: DashboardSummary | null = summaryResponse ? {
@@ -344,12 +422,21 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
         const transformedAlerts: TransformedAlert[] = Array.isArray(alerts) ? alerts.map((alert: AlertData, index: number) => {
           console.log(`Transforming alert ${index}:`, alert);
           return {
-            id: alert._id || Math.random(),
-            type: alert.amcEndDate ? 'warranty' : 'maintenance',
-            message: alert.amcEndDate 
-              ? `Warranty expiring for ${alert.assetName} in ${alert.departmentName}`
-              : `Maintenance required for ${alert.assetName} in ${alert.departmentName}`,
-            priority: 'high'
+            id: index,
+            type: alert.alertType.toLowerCase().replace(' ', '_'),
+            message: `${alert.assetName} (${alert.assetCode}) - ${alert.alertType}`,
+            priority: alert.daysToExpiry <= 7 ? 'high' : alert.daysToExpiry <= 15 ? 'medium' : 'low',
+            details: {
+              hospitalName: alert.hospitalName,
+              hospitalLocation: alert.hospitalLocation,
+              departmentName: alert.departmentName,
+              buildingName: alert.buildingName,
+              floorName: alert.floorName,
+              daysToExpiry: alert.daysToExpiry,
+              purchaseCost: alert.purchaseCost,
+              maintenanceCost: alert.maintenanceCost,
+              utilizationStatus: alert.utilizationStatus
+            }
           };
         }) : [];
         console.log('Transformed alerts:', transformedAlerts);
@@ -392,6 +479,35 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
     fetchDashboardData();
   }, [selectedHospitalId]);
 
+  // Update dashboard when entity changes
+  useEffect(() => {
+    if (selectedEntity) {
+      console.log('Entity changed:', selectedEntity);
+      // Reset selected hospital when entity changes
+      setSelectedHospital(null);
+      setSelectedHospitalId(null);
+      // You can use selectedEntity._id as hospitalId for API calls
+      // or fetch entity-specific data here
+      fetchDashboardData();
+    }
+  }, [selectedEntity]);
+
+  // Update dashboard when hospital changes
+  useEffect(() => {
+    if (selectedHospital) {
+      console.log('Hospital changed:', selectedHospital);
+      fetchDashboardData();
+    }
+  }, [selectedHospital]);
+
+  const handleHospitalChange = (hospitalId: string) => {
+    const hospital = entityHospitals.find(h => (h.hospitalId || h._id) === hospitalId);
+    if (hospital) {
+      setSelectedHospital(hospital);
+      setSelectedHospitalId(hospital.hospitalId || hospital._id);
+    }
+  };
+
   return (
     <div className="flex-1 p-8 bg-[#F9FAFB] min-h-screen">
       {loading ? (
@@ -406,18 +522,52 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
           <div>
             <h1 className="text-gray-900 mb-2">Super Admin Dashboard</h1>
             <p className="text-gray-600">Global overview across all hospital entities</p>
+            {selectedEntity && (
+              <div className="mt-2 flex items-center gap-2">
+                <Building className="h-4 w-4 text-[#0F67FF]" />
+                <span className="text-sm text-gray-700">
+                  Current Entity: <span className="font-semibold">{selectedEntity.name}</span> ({selectedEntity.code})
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="hospital-select">Hospital:</Label>
-              <Input
-                id="hospital-select"
-                placeholder="Enter Hospital ID (e.g., HOSP-0002)"
-                value={selectedHospitalId || ''}
-                onChange={(e) => setSelectedHospitalId(e.target.value)}
-                className="w-64"
-              />
-            </div>
+            {selectedEntity && entityHospitals.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Label htmlFor="hospital-select">Hospital:</Label>
+                <Select
+                  value={selectedHospitalId || ''}
+                  onValueChange={handleHospitalChange}
+                  disabled={loading || entityHospitals.length === 0}
+                >
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Select a hospital">
+                      {selectedHospital ? (
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-[#0F67FF]" />
+                          <span className="truncate">{selectedHospital.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">Select hospital</span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {entityHospitals.map((hospital) => (
+                      <SelectItem key={hospital.hospitalId || hospital._id} value={hospital.hospitalId || hospital._id}>
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-gray-500" />
+                          <div className="flex-1">
+                            <div className="font-medium">{hospital.name}</div>
+                            <div className="text-sm text-gray-500">{hospital.location}</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <Button 
               onClick={fetchDashboardData}
               className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
@@ -469,7 +619,9 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
           </CardHeader>
           <CardContent className="pt-0">
             <p className="text-lg font-semibold text-gray-900">{hospitalCount}</p>
-            <p className="text-xs text-[#0EB57D] mt-1">Registered hospitals</p>
+            <p className="text-xs text-[#0EB57D] mt-1">
+              {selectedEntity ? `${selectedEntity.name} hospitals` : 'Registered hospitals'}
+            </p>
           </CardContent>
         </Card>
 
@@ -539,6 +691,85 @@ export function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
         </Card>
 
         </div>
+
+      {/* Recent Alerts */}
+      <Card className="border-0 shadow-md mb-8">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-gray-900">Recent Alerts</CardTitle>
+              <CardDescription>Latest asset notifications and AMC expiry warnings</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
+              <span className="text-sm text-gray-600">{dashboardData.alerts.length} active</span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {dashboardData.alerts.length > 0 ? (
+              dashboardData.alerts.map((alert) => (
+                <div key={alert.id} className="border rounded-lg p-4 hover:shadow-md transition-all">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="h-4 w-4 text-orange-500" />
+                        <h4 className="font-semibold text-gray-900">{alert.message}</h4>
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                          alert.priority === 'high' ? 'bg-red-100 text-red-800' :
+                          alert.priority === 'medium' ? 'bg-orange-100 text-orange-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {alert.priority}
+                        </span>
+                      </div>
+                      
+                      {alert.details && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <span className="text-gray-600">Hospital:</span>
+                            <p className="font-medium">{alert.details.hospitalName}</p>
+                            <p className="text-xs text-gray-500">{alert.details.hospitalLocation}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Location:</span>
+                            <p className="font-medium">{alert.details.buildingName}</p>
+                            <p className="text-xs text-gray-500">{alert.details.floorName} • {alert.details.departmentName}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Status:</span>
+                            <p className="font-medium capitalize">{alert.details.utilizationStatus.replace('_', ' ')}</p>
+                            {alert.details.daysToExpiry !== undefined && (
+                              <p className="text-xs text-gray-500">
+                                {alert.details.daysToExpiry} days to expiry
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Purchase Cost:</span>
+                            <p className="font-medium">₹{alert.details.purchaseCost.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Maintenance Cost:</span>
+                            <p className="font-medium">₹{alert.details.maintenanceCost.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-500">No active alerts at this time</p>
+                <p className="text-sm text-gray-400 mt-1">All systems operating normally</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <Card className="border-0 shadow-md mb-8">

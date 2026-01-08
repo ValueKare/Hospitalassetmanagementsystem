@@ -14,6 +14,46 @@ interface EntitySetupProps {
   onNavigate: (screen: string) => void;
 }
 
+// Entity creation interface
+interface EntityFormData {
+  name: string;
+  code: string;
+  state: string;
+  city: string;
+  address: string;
+  meta?: {
+    contactPerson?: string;
+    email?: string;
+    phone?: string;
+    totalBuildings?: number;
+    totalAssets?: number;
+  };
+}
+
+// Entity creation response interface
+interface CreateEntityResponse {
+  success: boolean;
+  message: string;
+  data: {
+    _id: string;
+    name: string;
+    code: string;
+    state: string;
+    city: string;
+    address: string;
+    meta?: {
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      totalBuildings?: number;
+      totalAssets?: number;
+    };
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
 // Hospital creation interface
 interface HospitalFormData {
   name: string;
@@ -140,16 +180,174 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
     phone: ""
   });
 
+  // Entity creation states
+  const [isAddEntityOpen, setIsAddEntityOpen] = useState(false);
+  const [isCreatingEntity, setIsCreatingEntity] = useState(false);
+  const [entityForm, setEntityForm] = useState<EntityFormData>({
+    name: "",
+    code: "",
+    state: "",
+    city: "",
+    address: "",
+    meta: {
+      contactPerson: "",
+      email: "",
+      phone: "",
+      totalBuildings: 0,
+      totalAssets: 0
+    }
+  });
+  const [entities, setEntities] = useState<any[]>([]);
+  const [isLoadingEntities, setIsLoadingEntities] = useState(true);
+  const [entitiesError, setEntitiesError] = useState<string | null>(null);
+
   // Get auth token from localStorage
   const getAuthToken = () => {
     return localStorage.getItem('accessToken');
+  };
+
+  // Fetch entities from API
+  const fetchEntities = async () => {
+    setIsLoadingEntities(true);
+    setEntitiesError(null);
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('http://localhost:5001/api/entity', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch entities: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Entities API response:', result);
+      console.log('result.success value:', result.success);
+      console.log('result.success type:', typeof result.success);
+
+      // Handle missing success field - assume success if entities array exists
+      const isSuccess = result.success === true || result.success === 'true' || Array.isArray(result.entities);
+      console.log('isSuccess calculated:', isSuccess);
+
+      if (!isSuccess) {
+        console.log('API returned success=false, throwing error');
+        throw new Error(result.message || 'Failed to fetch entities');
+      }
+
+      console.log('Setting entities from:', result.entities);
+      setEntities(result.entities || result.data || []);
+      console.log('Entities set successfully');
+    } catch (error) {
+      console.error('Error fetching entities:', error);
+      setEntitiesError(error instanceof Error ? error.message : 'An unknown error occurred');
+    } finally {
+      setIsLoadingEntities(false);
+    }
+  };
+
+  // Handle entity form changes
+  const handleEntityFormChange = (field: keyof EntityFormData, value: string | number) => {
+    setEntityForm(prev => {
+      if (field.startsWith('meta.')) {
+        const metaField = field.replace('meta.', '') as keyof Exclude<EntityFormData['meta'], keyof EntityFormData>;
+        return {
+          ...prev,
+          meta: {
+            ...prev.meta,
+            [metaField]: value
+          }
+        };
+      } else {
+        return {
+          ...prev,
+          [field]: value
+        };
+      }
+    });
+  };
+
+  // Handle entity creation
+  const handleCreateEntity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingEntity(true);
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('http://localhost:5001/api/entity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(entityForm)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create entity: ${response.status} ${response.statusText}`);
+      }
+
+      const result: CreateEntityResponse = await response.json();
+      console.log('Create Entity API response:', result);
+
+      // Handle different response structures
+      const isSuccess = result.success === true || result.entity || result.message;
+      console.log('Create entity isSuccess:', isSuccess);
+
+      if (!isSuccess) {
+        throw new Error(result.message || 'Failed to create entity');
+      }
+
+      // Reset form and close dialog
+      setEntityForm({
+        name: "",
+        code: "",
+        state: "",
+        city: "",
+        address: "",
+        meta: {
+          contactPerson: "",
+          email: "",
+          phone: "",
+          totalBuildings: 0,
+          totalAssets: 0
+        }
+      });
+      setIsAddEntityOpen(false);
+
+      toast.success("Entity created successfully!", {
+        description: `${result.data.name} (${result.data.code}) has been added to the system`
+      });
+
+      // Refresh entities list
+      fetchEntities();
+    } catch (error) {
+      console.error('Error creating entity:', error);
+      toast.error('Failed to create entity', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      });
+    } finally {
+      setIsCreatingEntity(false);
+    }
   };
 
   // Fetch hospitals from API
   const fetchHospitals = async () => {
     setIsLoadingHospitals(true);
     setHospitalsError(null);
-    
+
     try {
       const token = getAuthToken();
       if (!token) {
@@ -163,7 +361,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
 
       if (!response.ok) {
         throw new Error(`Failed to fetch hospitals: ${response.status} ${response.statusText}`);
@@ -171,7 +369,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
 
       const result: GetHospitalsResponse = await response.json();
       console.log('GET request response:', result);
-      
+
       if (!result.success) {
         throw new Error('Failed to load hospitals');
       }
@@ -199,9 +397,10 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
     }
   };
 
-  // Load hospitals on component mount
+  // Load hospitals and entities on component mount
   useEffect(() => {
     fetchHospitals();
+    fetchEntities();
   }, []);
 
   // Handle hospital creation
@@ -229,7 +428,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
       }
 
       const result: CreateHospitalResponse = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Failed to create hospital');
       }
@@ -311,7 +510,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
       }
 
       const result: UpdateHospitalResponse = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Failed to update hospital');
       }
@@ -350,7 +549,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
       name: hospital.hospitalName,
       location: hospital.location,
       contactEmail: "", // This would need to be fetched from a detailed API
-      phone: "" // This would need to be fetched from a detailed API
+      phone: ""
     });
     setIsEditHospitalOpen(true);
   };
@@ -365,12 +564,255 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
 
       {/* Tabs */}
       <Tabs defaultValue="hospitals" className="space-y-6">
-        <TabsList className="grid w-full md:w-auto grid-cols-4">
+        <TabsList className="flex flex-wrap md:flex-nowrap gap-2 w-full md:w-auto">
+          <TabsTrigger value="entities">Entities</TabsTrigger>
           <TabsTrigger value="hospitals">Hospitals</TabsTrigger>
           <TabsTrigger value="buildings">Buildings</TabsTrigger>
           <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="cost-centers">Cost Centers</TabsTrigger>
         </TabsList>
+
+
+        {/* Entities Tab */}
+        <TabsContent value="entities">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-gray-900">Entity Management</CardTitle>
+                  <CardDescription>Create and manage entities</CardDescription>
+                </div>
+                <Dialog open={isAddEntityOpen} onOpenChange={setIsAddEntityOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Entity
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Entity</DialogTitle>
+                      <DialogDescription>Set up a new entity with hospitals and facilities</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateEntity} className="space-y-4 py-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="entity-name">Entity Name</Label>
+                          <Input
+                            id="entity-name"
+                            placeholder="Enter entity name"
+                            value={entityForm.name}
+                            onChange={(e) => handleEntityFormChange('name', e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="entity-code">Entity Code</Label>
+                          <Input
+                            id="entity-code"
+                            placeholder="Enter entity code"
+                            value={entityForm.code}
+                            onChange={(e) => handleEntityFormChange('code', e.target.value)}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="entity-state">State</Label>
+                          <Input
+                            id="entity-state"
+                            placeholder="Enter state"
+                            value={entityForm.state}
+                            onChange={(e) => handleEntityFormChange('state', e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="entity-city">City</Label>
+                          <Input
+                            id="entity-city"
+                            placeholder="Enter city"
+                            value={entityForm.city}
+                            onChange={(e) => handleEntityFormChange('city', e.target.value)}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="entity-address">Address</Label>
+                        <Input
+                          id="entity-address"
+                          placeholder="Enter full address"
+                          value={entityForm.address}
+                          onChange={(e) => handleEntityFormChange('address', e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="contact-person">Contact Person</Label>
+                          <Input
+                            id="contact-person"
+                            placeholder="Enter contact person name"
+                            value={entityForm.meta?.contactPerson || ''}
+                            onChange={(e) => handleEntityFormChange('meta', {
+                              ...entityForm.meta,
+                              contactPerson: e.target.value
+                            })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="contact-email">Contact Email</Label>
+                          <Input
+                            id="contact-email"
+                            type="email"
+                            placeholder="Enter contact email"
+                            value={entityForm.meta?.email || ''}
+                            onChange={(e) => handleEntityFormChange('meta', {
+                              ...entityForm.meta,
+                              email: e.target.value
+                            })}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="contact-phone">Contact Phone</Label>
+                          <Input
+                            id="contact-phone"
+                            placeholder="Enter contact phone"
+                            value={entityForm.meta?.phone || ''}
+                            onChange={(e) => handleEntityFormChange('meta', {
+                              ...entityForm.meta,
+                              phone: e.target.value
+                            })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="total-buildings">Total Buildings</Label>
+                          <Input
+                            id="total-buildings"
+                            type="number"
+                            placeholder="Enter total buildings"
+                            value={entityForm.meta?.totalBuildings || 0}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              handleEntityFormChange('meta', {
+                                ...entityForm.meta,
+                                totalBuildings: value
+                              });
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="total-assets">Total Assets</Label>
+                          <Input
+                            id="total-assets"
+                            type="number"
+                            placeholder="Enter total assets"
+                            value={entityForm.meta?.totalAssets || 0}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              handleEntityFormChange('meta', {
+                                ...entityForm.meta,
+                                totalAssets: value
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsAddEntityOpen(false)}
+                          disabled={isCreatingEntity}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
+                          disabled={isCreatingEntity}
+                        >
+                          {isCreatingEntity ? "Creating..." : "Create Entity"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Entity Name</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>City</TableHead>
+                    <TableHead>Buildings</TableHead>
+                    <TableHead>Assets</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoadingEntities ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="text-gray-500">Loading entities...</div>
+                      </TableCell>
+                    </TableRow>
+                  ) : entitiesError ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="text-red-500">Error: {entitiesError}</div>
+                      </TableCell>
+                    </TableRow>
+                  ) : entities.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="text-gray-500">No entities found</div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    entities.map((entity, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-[#10B981]" />
+                            {entity.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-[#E8F0FF] text-[#0F67FF]">
+                            {entity.code}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{entity.state}</TableCell>
+                        <TableCell>{entity.city}</TableCell>
+                        <TableCell>{entity.address}</TableCell>
+                        <TableCell>{entity.meta?.totalBuildings || 0}</TableCell>
+                        <TableCell>{entity.meta?.totalAssets || 0}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="sm">
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Hospitals Tab */}
         <TabsContent value="hospitals">
@@ -396,8 +838,8 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                     <form onSubmit={handleCreateHospital} className="space-y-4 py-4">
                       <div className="space-y-2">
                         <Label htmlFor="hospital-name">Hospital Name</Label>
-                        <Input 
-                          id="hospital-name" 
+                        <Input
+                          id="hospital-name"
                           placeholder="Enter hospital name"
                           value={hospitalForm.name}
                           onChange={(e) => handleHospitalFormChange('name', e.target.value)}
@@ -406,8 +848,8 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="entity-code">Entity Code</Label>
-                        <Input 
-                          id="entity-code" 
+                        <Input
+                          id="entity-code"
                           placeholder="Enter entity code"
                           value={hospitalForm.entityCode}
                           onChange={(e) => handleHospitalFormChange('entityCode', e.target.value)}
@@ -416,8 +858,8 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="location">Location</Label>
-                        <Input 
-                          id="location" 
+                        <Input
+                          id="location"
                           placeholder="City, State"
                           value={hospitalForm.location}
                           onChange={(e) => handleHospitalFormChange('location', e.target.value)}
@@ -426,8 +868,8 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="contact-email">Contact Email</Label>
-                        <Input 
-                          id="contact-email" 
+                        <Input
+                          id="contact-email"
                           type="email"
                           placeholder="Enter contact email"
                           value={hospitalForm.contactEmail}
@@ -437,8 +879,8 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="phone">Phone Number</Label>
-                        <Input 
-                          id="phone" 
+                        <Input
+                          id="phone"
                           placeholder="Enter phone number"
                           value={hospitalForm.phone}
                           onChange={(e) => handleHospitalFormChange('phone', e.target.value)}
@@ -446,15 +888,15 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                         />
                       </div>
                       <DialogFooter>
-                        <Button 
+                        <Button
                           type="button"
-                          variant="outline" 
+                          variant="outline"
                           onClick={() => setIsAddHospitalOpen(false)}
                           disabled={isCreatingHospital}
                         >
                           Cancel
                         </Button>
-                        <Button 
+                        <Button
                           type="submit"
                           className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
                           disabled={isCreatingHospital}
@@ -469,73 +911,73 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
             </CardHeader>
             <CardContent>
 
-        {/* Edit Hospital Dialog */}
-        <Dialog open={isEditHospitalOpen} onOpenChange={setIsEditHospitalOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Edit Hospital</DialogTitle>
-              <DialogDescription>Update hospital information</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleUpdateHospital} className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-hospital-name">Hospital Name</Label>
-                <Input 
-                  id="edit-hospital-name" 
-                  placeholder="Enter hospital name"
-                  value={editForm.name}
-                  onChange={(e) => handleEditFormChange('name', e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-location">Location</Label>
-                <Input 
-                  id="edit-location" 
-                  placeholder="City, State"
-                  value={editForm.location}
-                  onChange={(e) => handleEditFormChange('location', e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-contact-email">Contact Email</Label>
-                <Input 
-                  id="edit-contact-email" 
-                  type="email"
-                  placeholder="Enter contact email"
-                  value={editForm.contactEmail}
-                  onChange={(e) => handleEditFormChange('contactEmail', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-phone">Phone Number</Label>
-                <Input 
-                  id="edit-phone" 
-                  placeholder="Enter phone number"
-                  value={editForm.phone}
-                  onChange={(e) => handleEditFormChange('phone', e.target.value)}
-                />
-              </div>
-              <DialogFooter>
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  onClick={() => setIsEditHospitalOpen(false)}
-                  disabled={isUpdatingHospital}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit"
-                  className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
-                  disabled={isUpdatingHospital}
-                >
-                  {isUpdatingHospital ? "Updating..." : "Update Hospital"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+              {/* Edit Hospital Dialog */}
+              <Dialog open={isEditHospitalOpen} onOpenChange={setIsEditHospitalOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Edit Hospital</DialogTitle>
+                    <DialogDescription>Update hospital information</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleUpdateHospital} className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-hospital-name">Hospital Name</Label>
+                      <Input
+                        id="edit-hospital-name"
+                        placeholder="Enter hospital name"
+                        value={editForm.name}
+                        onChange={(e) => handleEditFormChange('name', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-location">Location</Label>
+                      <Input
+                        id="edit-location"
+                        placeholder="City, State"
+                        value={editForm.location}
+                        onChange={(e) => handleEditFormChange('location', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-contact-email">Contact Email</Label>
+                      <Input
+                        id="edit-contact-email"
+                        type="email"
+                        placeholder="Enter contact email"
+                        value={editForm.contactEmail}
+                        onChange={(e) => handleEditFormChange('contactEmail', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-phone">Phone Number</Label>
+                      <Input
+                        id="edit-phone"
+                        placeholder="Enter phone number"
+                        value={editForm.phone}
+                        onChange={(e) => handleEditFormChange('phone', e.target.value)}
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsEditHospitalOpen(false)}
+                        disabled={isUpdatingHospital}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
+                        disabled={isUpdatingHospital}
+                      >
+                        {isUpdatingHospital ? "Updating..." : "Update Hospital"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -585,8 +1027,8 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                         <TableCell>{hospital.totalAssets.toLocaleString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleEditHospital(hospital)}
                             >
@@ -643,7 +1085,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsAddBuildingOpen(false)}>Cancel</Button>
-                      <Button 
+                      <Button
                         className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
                         onClick={() => {
                           toast.success("Building added successfully!");
@@ -739,7 +1181,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsAddDepartmentOpen(false)}>Cancel</Button>
-                      <Button 
+                      <Button
                         className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
                         onClick={() => {
                           toast.success("Department added successfully!");
