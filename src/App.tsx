@@ -182,6 +182,8 @@ export default function App() {
       return <SuperAdminDashboard onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
     } else if (userRole === "audit-admin") {
       return <AuditAdminDashboard onNavigate={handleNavigate} />;
+    } else if (userRole === "admin") {
+      return <AdminDashboard onNavigate={handleNavigate} />;
     }
     return <SuperAdminDashboard onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
   };
