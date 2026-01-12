@@ -44,6 +44,7 @@ import { BuildingFloorManagement } from "./components/user/BuildingFloorManageme
 import { Dashboard } from "./components/Dashboard";
 
 import { Toaster } from "./components/ui/sonner";
+import { toast } from "sonner";
 
 type Screen = 
   | "login" 
@@ -85,10 +86,36 @@ export default function App() {
   const [userPanel, setUserPanel] = useState<string>(""); // "admin" or "user"
   const [selectedAssetId, setSelectedAssetId] = useState<number | undefined>();
   const [selectedEntity, setSelectedEntity] = useState<any>(null);
+  const [entityLoading, setEntityLoading] = useState(true);
+
+// Session validation function
+const validateSession = async (accessToken: string) => {
+  try {
+    const response = await fetch('http://localhost:5001/api/auth/validate-session', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (response.status === 401) {
+      // Session invalidated by another login
+      console.log('Session invalidated by new login');
+      return false;
+    }
+
+    const data = await response.json();
+    return data.success;
+  } catch (error) {
+    console.error('Session validation error:', error);
+    return false;
+  }
+};
 
   // Check for existing authentication on app load
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const accessToken = localStorage.getItem('accessToken');
       const user = localStorage.getItem('user');
       const expiresIn = localStorage.getItem('expiresIn');
@@ -113,10 +140,27 @@ export default function App() {
           
           // Check if token is still valid (with 5-minute buffer)
           if (currentTime < (expirationTime - 300000)) { // 5 minutes buffer
-            setUserRole(userData.role);
-            setUserPanel(userData.panel);
-            setCurrentScreen("dashboard");
-            console.log('User session restored successfully');
+            // Validate session with backend
+            const isSessionValid = await validateSession(accessToken);
+            
+            if (isSessionValid) {
+              setUserRole(userData.role);
+              setUserPanel(userData.panel);
+              setCurrentScreen("dashboard");
+              console.log('User session restored successfully');
+            } else {
+              // Session invalidated, clear localStorage and show message
+              console.log('Session invalidated, clearing session');
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('user');
+              localStorage.removeItem('hospital');
+              localStorage.removeItem('expiresIn');
+              localStorage.removeItem('loginTime');
+              
+              // Show toast about session termination
+              toast.error('Your session has been terminated because you logged in from another device.');
+            }
           } else {
             // Token expired, clear localStorage
             console.log('Token expired, clearing session');
@@ -171,11 +215,77 @@ export default function App() {
     setUserPanel("");
     setSelectedAssetId(undefined);
     setSelectedEntity(null);
+    setEntityLoading(true);
   };
 
   const handleEntityChange = (entity: any) => {
     setSelectedEntity(entity);
+    setEntityLoading(false);
   };
+
+  // Fetch entities early in the app lifecycle
+  useEffect(() => {
+    const fetchEntitiesEarly = async () => {
+      if (userRole === "superadmin") {
+        try {
+          const response = await fetch('http://localhost:5001/api/entity');
+          if (response.ok) {
+            const data = await response.json();
+            const entityList = data.entities || [];
+            if (entityList.length > 0) {
+              const firstEntity = entityList[0];
+              setSelectedEntity(firstEntity);
+              setEntityLoading(false);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch entities early:', error);
+        } finally {
+          setEntityLoading(false);
+        }
+      } else {
+        setEntityLoading(false);
+      }
+    };
+
+    if (userRole) {
+      fetchEntitiesEarly();
+    }
+  }, [userRole]);
+
+  // Periodic session validation
+  useEffect(() => {
+    if (currentScreen !== "login" && userRole) {
+      const interval = setInterval(async () => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (accessToken) {
+          const isSessionValid = await validateSession(accessToken);
+          if (!isSessionValid) {
+            console.log('Session invalidated during periodic check');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            localStorage.removeItem('hospital');
+            localStorage.removeItem('expiresIn');
+            localStorage.removeItem('loginTime');
+            
+            // Reset state and redirect to login
+            setCurrentScreen("login");
+            setUserRole("");
+            setUserPanel("");
+            setSelectedAssetId(undefined);
+            setSelectedEntity(null);
+            setEntityLoading(true);
+            
+            // Show toast about session termination
+            toast.error('Your session has been terminated because you logged in from another device.');
+          }
+        }
+      }, 30000); // Check every 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [currentScreen, userRole]);
 
   const renderAdminDashboard = () => {
     if (userRole === "superadmin") {
@@ -226,9 +336,9 @@ export default function App() {
       case "dashboard":
         return renderAdminDashboard();
       case "user-management":
-        return <UserManagement onNavigate={handleNavigate} />;
+        return <UserManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
       case "audit-users":
-        return <UserManagement onNavigate={handleNavigate} />; // Can create separate AuditUserManagement if needed
+        return <UserManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />; // Can create separate AuditUserManagement if needed
       case "user-rights":
         return <UserRightsManagement onNavigate={handleNavigate} />;
       case "entity-setup":
@@ -305,6 +415,7 @@ export default function App() {
               onNavigate={handleNavigate}
               onLogout={handleLogout}
               onEntityChange={handleEntityChange}
+              selectedEntity={selectedEntity}
             />
           ) : (
             <UserNavigationSidebar
@@ -315,7 +426,17 @@ export default function App() {
             />
           )}
           <div className="flex-1 ml-64">
-            {userPanel === "admin" ? renderAdminContent() : renderUserContent()}
+            {/* Show loading state for superadmin while entities are being fetched */}
+            {userPanel === "admin" && userRole === "superadmin" && entityLoading ? (
+              <div className="flex items-center justify-center h-screen">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0F67FF] mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading entities...</p>
+                </div>
+              </div>
+            ) : (
+              userPanel === "admin" ? renderAdminContent() : renderUserContent()
+            )}
           </div>
         </div>
       )}

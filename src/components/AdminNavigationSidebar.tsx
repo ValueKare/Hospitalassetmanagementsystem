@@ -21,6 +21,7 @@ interface AdminNavigationSidebarProps {
   onNavigate: (screen: string) => void;
   onLogout: () => void;
   onEntityChange?: (entity: Entity | null) => void;
+  selectedEntity?: Entity | null;
 }
 
 interface Entity {
@@ -76,11 +77,18 @@ const fetchEntities = async () => {
   }
 };
 
-export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, onLogout, onEntityChange }: AdminNavigationSidebarProps) {
+export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, onLogout, onEntityChange, selectedEntity }: AdminNavigationSidebarProps) {
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+  const [localSelectedEntity, setLocalSelectedEntity] = useState<Entity | null>(selectedEntity || null);
   const [loading, setLoading] = useState(true);
   const menuItems = userRole === "superadmin" ? superAdminMenu : auditAdminMenu;
+
+  // Sync local state with prop changes
+  useEffect(() => {
+    if (selectedEntity !== undefined) {
+      setLocalSelectedEntity(selectedEntity);
+    }
+  }, [selectedEntity]);
 
   // Fetch entities on component mount
   useEffect(() => {
@@ -88,10 +96,10 @@ export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, on
       try {
         const entityList = await fetchEntities();
         setEntities(entityList);
-        // Auto-select first entity if available and no entity is selected
-        if (entityList.length > 0 && !selectedEntity) {
+        // Only auto-select if no entity is already selected from props
+        if (entityList.length > 0 && !selectedEntity && !localSelectedEntity) {
           const firstEntity = entityList[0];
-          setSelectedEntity(firstEntity);
+          setLocalSelectedEntity(firstEntity);
           onEntityChange?.(firstEntity);
         }
       } catch (error) {
@@ -101,13 +109,18 @@ export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, on
       }
     };
 
-    loadEntities();
-  }, []);
+    // Only fetch if we don't already have entities from the App component
+    if (!selectedEntity && entities.length === 0) {
+      loadEntities();
+    } else {
+      setLoading(false);
+    }
+  }, [selectedEntity, onEntityChange]);
 
   const handleEntityChange = (entityId: string) => {
     const entity = entities.find(e => e._id === entityId);
     if (entity) {
-      setSelectedEntity(entity);
+      setLocalSelectedEntity(entity);
       onEntityChange?.(entity);
     }
   };
@@ -132,16 +145,16 @@ export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, on
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Select Entity</label>
             <Select
-              value={selectedEntity?._id || ""}
+              value={localSelectedEntity?._id || ""}
               onValueChange={handleEntityChange}
               disabled={loading || entities.length === 0}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={loading ? "Loading entities..." : "Select an entity"}>
-                  {selectedEntity ? (
+                  {localSelectedEntity ? (
                     <div className="flex items-center gap-2">
                       <Building className="h-4 w-4 text-[#0F67FF]" />
-                      <span className="truncate">{selectedEntity.name}</span>
+                      <span className="truncate">{localSelectedEntity.name}</span>
                     </div>
                   ) : (
                     <span className="text-gray-500">{loading ? "Loading..." : "Select entity"}</span>

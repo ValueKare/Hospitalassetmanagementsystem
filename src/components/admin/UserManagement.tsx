@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -12,6 +12,56 @@ import { toast } from "sonner";
 
 interface UserManagementProps {
   onNavigate: (screen: string) => void;
+  selectedEntity?: Entity | null;
+}
+
+interface Entity {
+  _id: string;
+  name: string;
+  code: string;
+  state: string | null;
+  city: string | null;
+  address: string;
+  meta: {
+    contactPerson: string;
+    email: string;
+    phone: string;
+    totalBuildings: number;
+    totalAssets: number;
+  };
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Role {
+  _id: string;
+  name: string;
+  permissions: Record<string, boolean>;
+  isSystemRole: boolean;
+}
+
+interface Department {
+  _id: string;
+  departmentId: string;
+  name: string;
+  code: string;
+  organizationId: string;
+  hospitalId: string;
+  buildingId?: string;
+  floorId?: string;
+  headOfDepartment?: string;
+  totalAssets?: number;
+  totalStaff?: number;
+  costCenters?: string[];
+}
+
+interface Hospital {
+  _id: string;
+  hospitalId: string;
+  name: string;
+  code: string;
+  organizationId: string;
 }
 
 const mockUsers = [
@@ -22,11 +72,35 @@ const mockUsers = [
   { id: 5, name: "Lisa Anderson", email: "lisa@community.com", role: "department-head", hospital: "Community Hospital", status: "active", parent: "Super Admin" },
 ];
 
-export function UserManagement({ onNavigate }: UserManagementProps) {
+export function UserManagement({ onNavigate, selectedEntity }: UserManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  
+  // Form state for employee addition
+  const [employeeForm, setEmployeeForm] = useState({
+    name: "",
+    email: "",
+    organizationId: "",
+    hospital: "",
+    department: "",
+    ward: "",
+    role: "",
+    roleId: "",
+    panel: "",
+    parentUserId: "",
+    permissions: {} as Record<string, boolean>,
+    joinedDate: "",
+    contactNumber: ""
+  });
+  
+  // API data states
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const filteredUsers = mockUsers.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -36,10 +110,327 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const handleAddUser = () => {
-    toast.success("User added successfully!");
-    setIsAddUserOpen(false);
+  // Get auth token from localStorage
+  const getAuthToken = () => {
+    return localStorage.getItem('accessToken');
   };
+
+  // Fetch roles from API
+  const fetchRoles = async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('http://localhost:5001/api/roles', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch roles: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.data ? 'API returned unsuccessful response' : 'Invalid response format');
+      }
+
+      setRoles(data.data);
+    } catch (err) {
+      console.error('Error fetching roles:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load roles');
+    }
+  };
+
+  // Fetch hospitals based on selected entity
+  const fetchHospitals = async (entityCode: string) => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Add timestamp to prevent caching
+      const timestamp = Date.now();
+      const response = await fetch(`http://localhost:5001/api/dashboard/hospitals?entityCode=${entityCode}&_t=${timestamp}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      console.log('Hospitals API response status:', response.status);
+      console.log('Hospitals API response headers:', response.headers);
+
+      // Handle 304 responses by making a fresh request
+      if (response.status === 304) {
+        console.log('Got 304, making fresh request...');
+        const freshResponse = await fetch(`http://localhost:5001/api/dashboard/hospitals?entityCode=${entityCode}&_fresh=${Date.now()}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        
+        if (freshResponse.ok) {
+          const data = await freshResponse.json();
+          console.log('Fresh hospitals data:', data);
+          
+          if (data.success && data.data?.hospitals) {
+            setHospitals(data.data.hospitals);
+          } else if (data.hospitals) {
+            // Handle direct hospitals array response
+            setHospitals(data.hospitals);
+          } else {
+            console.warn('Unexpected hospitals response structure:', data);
+          }
+        }
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch hospitals: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Hospitals data received:', data);
+      
+      if (data.success && data.data?.hospitals) {
+        setHospitals(data.data.hospitals);
+      } else if (data.hospitals) {
+        // Handle direct hospitals array response
+        setHospitals(data.hospitals);
+      } else {
+        console.warn('Unexpected hospitals response structure:', data);
+      }
+    } catch (err) {
+      console.error('Error fetching hospitals:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load hospitals');
+    }
+  };
+
+  // Fetch departments based on organization and hospital
+  const fetchDepartments = async (organizationId: string, hospitalId: string) => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Try organization-specific departments first
+      let response = await fetch(`http://localhost:5001/api/v1/organizations/${organizationId}/departments`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      let data;
+      if (response.ok) {
+        data = await response.json();
+        if (data.success && data.data?.departments) {
+          setDepartments(data.data.departments);
+          return;
+        }
+      }
+
+      // Fallback to hospital-specific departments
+      response = await fetch(`http://localhost:5001/api/v1/hospitals/${hospitalId}/departments`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        data = await response.json();
+        if (data.success && data.data?.departments) {
+          setDepartments(data.data.departments);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching departments:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load departments');
+    }
+  };
+
+  // Handle form field changes
+  const handleFormChange = (field: string, value: string) => {
+    setEmployeeForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Handle role selection
+  const handleRoleChange = (roleId: string) => {
+    console.log('Role change triggered with ID:', roleId);
+    console.log('Available roles:', roles);
+    
+    const selectedRole = roles.find(role => role._id === roleId);
+    console.log('Found role:', selectedRole);
+    
+    if (selectedRole) {
+      setEmployeeForm(prev => ({
+        ...prev,
+        roleId,
+        role: selectedRole.name.toLowerCase(),
+        panel: selectedRole.name.toLowerCase(),
+        permissions: selectedRole.permissions
+      }));
+      console.log('Updated form role fields:', {
+        roleId,
+        role: selectedRole.name.toLowerCase(),
+        panel: selectedRole.name.toLowerCase()
+      });
+    } else {
+      console.error('Role not found with ID:', roleId);
+    }
+  };
+
+  // Handle hospital change
+  const handleHospitalChange = (hospitalId: string) => {
+    console.log('Hospital change triggered with ID:', hospitalId);
+    console.log('Available hospitals:', hospitals);
+    
+    const selectedHospital = hospitals.find(h => h._id === hospitalId || h.hospitalId === hospitalId);
+    console.log('Found hospital:', selectedHospital);
+    
+    if (selectedHospital) {
+      setEmployeeForm(prev => ({ ...prev, hospital: hospitalId }));
+      console.log('Updated form hospital field to:', hospitalId);
+      
+      // Fetch departments for the selected hospital
+      if (employeeForm.organizationId) {
+        fetchDepartments(employeeForm.organizationId, hospitalId);
+      }
+    } else {
+      console.error('Hospital not found with ID:', hospitalId);
+    }
+  };
+
+  // Handle employee creation
+  const handleAddUser = async () => {
+    setLoading(true);
+    setError(null);
+    
+    // Debug: Log current form state
+    console.log('Current form state:', employeeForm);
+    console.log('Required fields check:', {
+      name: !!employeeForm.name,
+      email: !!employeeForm.email,
+      organizationId: !!employeeForm.organizationId,
+      hospital: !!employeeForm.hospital,
+      roleId: !!employeeForm.roleId
+    });
+    
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Validate required fields with more specific error messages
+      const missingFields = [];
+      if (!employeeForm.name) missingFields.push('Name');
+      if (!employeeForm.email) missingFields.push('Email');
+      if (!employeeForm.organizationId) missingFields.push('Organization');
+      if (!employeeForm.hospital) missingFields.push('Hospital');
+      if (!employeeForm.roleId) missingFields.push('Role');
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Please fill in the following required fields: ${missingFields.join(', ')}`);
+      }
+
+      const payload = {
+        name: employeeForm.name,
+        email: employeeForm.email,
+        organizationId: employeeForm.organizationId,
+        hospital: employeeForm.hospital,
+        department: employeeForm.department,
+        ward: employeeForm.ward,
+        role: employeeForm.role,
+        roleId: employeeForm.roleId,
+        panel: employeeForm.panel,
+        parentUserId: employeeForm.parentUserId,
+        permissions: employeeForm.permissions,
+        joinedDate: employeeForm.joinedDate,
+        contactNumber: employeeForm.contactNumber
+      };
+
+      const response = await fetch('http://localhost:5001/api/employee/add', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create employee: ${response.status} ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to create employee');
+      }
+
+      toast.success("Employee added successfully!");
+      setIsAddUserOpen(false);
+      
+      // Reset form
+      setEmployeeForm({
+        name: "",
+        email: "",
+        organizationId: "",
+        hospital: "",
+        department: "",
+        ward: "",
+        role: "",
+        roleId: "",
+        panel: "",
+        parentUserId: "",
+        permissions: {},
+        joinedDate: "",
+        contactNumber: ""
+      });
+    } catch (err) {
+      console.error('Error creating employee:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create employee');
+      toast.error(err instanceof Error ? err.message : 'Failed to create employee');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load initial data when component mounts or entity changes
+  useEffect(() => {
+    console.log('UserManagement useEffect triggered, selectedEntity:', selectedEntity);
+    fetchRoles();
+    
+    if (selectedEntity) {
+      console.log('Fetching hospitals for entity:', selectedEntity.code);
+      setEmployeeForm(prev => ({ ...prev, organizationId: selectedEntity.code }));
+      fetchHospitals(selectedEntity.code);
+    } else {
+      console.log('No selected entity available');
+    }
+  }, [selectedEntity]);
 
   const handleDeleteUser = (userId: number) => {
     toast.success("User deleted successfully!");
@@ -109,68 +500,154 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
                     Add User
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Add New User</DialogTitle>
-                    <DialogDescription>Create a new user account and assign permissions</DialogDescription>
+                    <DialogTitle>Add New Employee</DialogTitle>
+                    <DialogDescription>Create a new employee account and assign permissions</DialogDescription>
                   </DialogHeader>
+                  
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                      {error}
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-2 gap-4 py-4">
+                    {/* Basic Information */}
                     <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" placeholder="Enter full name" />
+                      <Label htmlFor="name">Full Name *</Label>
+                      <Input 
+                        id="name" 
+                        placeholder="Enter full name" 
+                        value={employeeForm.name}
+                        onChange={(e) => handleFormChange('name', e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email Address</Label>
-                      <Input id="email" type="email" placeholder="user@hospital.com" />
+                      <Label htmlFor="email">Email Address *</Label>
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        placeholder="user@hospital.com" 
+                        value={employeeForm.email}
+                        onChange={(e) => handleFormChange('email', e.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="hospital">Hospital</Label>
-                      <Select>
+                      <Label htmlFor="contactNumber">Contact Number</Label>
+                      <Input 
+                        id="contactNumber" 
+                        placeholder="+1234567890" 
+                        value={employeeForm.contactNumber}
+                        onChange={(e) => handleFormChange('contactNumber', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="joinedDate">Joined Date</Label>
+                      <Input 
+                        id="joinedDate" 
+                        type="date" 
+                        value={employeeForm.joinedDate}
+                        onChange={(e) => handleFormChange('joinedDate', e.target.value)}
+                      />
+                    </div>
+                    
+                    {/* Organization and Hospital */}
+                    <div className="space-y-2">
+                      <Label htmlFor="organization">Organization *</Label>
+                      <Input 
+                        id="organization" 
+                        value={selectedEntity?.name || employeeForm.organizationId}
+                        disabled
+                        className="bg-gray-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hospital">Hospital *</Label>
+                      <Select onValueChange={handleHospitalChange} value={employeeForm.hospital}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select hospital" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="city">City General Hospital</SelectItem>
-                          <SelectItem value="metro">Metro Medical Center</SelectItem>
-                          <SelectItem value="regional">Regional Health Center</SelectItem>
+                          {hospitals.length === 0 ? (
+                            <SelectItem value="no-hospitals" disabled>
+                              No hospitals available
+                            </SelectItem>
+                          ) : (
+                            hospitals.map((hospital) => (
+                              <SelectItem key={hospital._id} value={hospital._id}>
+                                {hospital.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {hospitals.length === 0 && (
+                        <p className="text-xs text-gray-500">No hospitals loaded. Check console for details.</p>
+                      )}
+                    </div>
+                    
+                    {/* Department and Ward */}
+                    <div className="space-y-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Select onValueChange={(value: string) => handleFormChange('department', value)} value={employeeForm.department}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments.map((department) => (
+                            <SelectItem key={department._id} value={department._id}>
+                              {department.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="role">Role</Label>
-                      <Select>
+                      <Label htmlFor="ward">Ward</Label>
+                      <Input 
+                        id="ward" 
+                        placeholder="Enter ward" 
+                        value={employeeForm.ward}
+                        onChange={(e) => handleFormChange('ward', e.target.value)}
+                      />
+                    </div>
+                    
+                    {/* Role and Parent User */}
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role *</Label>
+                      <Select onValueChange={handleRoleChange} value={employeeForm.roleId}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="department-head">Department Head</SelectItem>
-                          <SelectItem value="biomedical">Biomedical Manager</SelectItem>
-                          <SelectItem value="store-manager">Store Manager</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
+                          {roles.map((role) => (
+                            <SelectItem key={role._id} value={role._id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="parent">Parent User</Label>
-                      <Select>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select parent user" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="super-admin">Super Admin</SelectItem>
-                          <SelectItem value="dept-head">Department Head</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Initial Password</Label>
-                      <Input id="password" type="password" placeholder="Enter password" />
+                      <Label htmlFor="parentUserId">Parent User ID</Label>
+                      <Input 
+                        id="parentUserId" 
+                        placeholder="Enter parent user ID" 
+                        value={employeeForm.parentUserId}
+                        onChange={(e) => handleFormChange('parentUserId', e.target.value)}
+                      />
                     </div>
                   </div>
+                  
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAddUser} className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]">
-                      Create User
+                    <Button 
+                      onClick={handleAddUser} 
+                      className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
+                      disabled={loading}
+                    >
+                      {loading ? 'Creating...' : 'Create Employee'}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
