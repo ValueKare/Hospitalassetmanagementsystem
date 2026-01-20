@@ -11,6 +11,7 @@ import { EntitySetup } from "./components/admin/EntitySetup";
 import { AuditManagement } from "./components/admin/AuditManagement";
 import { UserRightsManagement } from "./components/admin/UserRightsManagement";
 import { AdminAssetManagement } from "./components/admin/AdminAssetManagement";
+import { AuditController } from "./components/admin/AuditController";
 
 // User Panel Dashboards
 import { AdminDashboard } from "./components/dashboards/AdminDashboard";
@@ -42,6 +43,8 @@ import { AssetCategoryManagement } from "./components/user/AssetCategoryManageme
 import { UserAuditManagement } from "./components/user/UserAuditManagement";
 import { BuildingFloorManagement } from "./components/user/BuildingFloorManagement";
 import { Dashboard } from "./components/Dashboard";
+import { Level1UserDashboard } from "./components/dashboards/Level1UserDashboard";
+import { AssetRequestForm } from "./components/AssetRequestForm";
 
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
@@ -49,6 +52,7 @@ import { toast } from "sonner";
 type Screen = 
   | "login" 
   | "dashboard" 
+  | "create-request"
   // Admin Panel Screens
   | "user-management"
   | "audit-users"
@@ -56,6 +60,7 @@ type Screen =
   | "entity-setup"
   | "admin-assets"
   | "audit-management"
+  | "audit-controller"
   | "admin-reports"
   // User Panel Screens
   | "assets"
@@ -146,7 +151,12 @@ const validateSession = async (accessToken: string) => {
             if (isSessionValid) {
               setUserRole(userData.role);
               setUserPanel(userData.panel);
-              setCurrentScreen("dashboard");
+              // Set screen based on user role
+              if (userData.role === 'level1_user') {
+                setCurrentScreen('level1_user');
+              } else {
+                setCurrentScreen('dashboard');
+              }
               console.log('User session restored successfully');
             } else {
               // Session invalidated, clear localStorage and show message
@@ -190,7 +200,12 @@ const validateSession = async (accessToken: string) => {
   const handleLogin = (role: string, panel: string) => {
     setUserRole(role);
     setUserPanel(panel);
-    setCurrentScreen("dashboard");
+    // Set screen based on user role
+    if (role === 'level1_user') {
+      setCurrentScreen('level1_user');
+    } else {
+      setCurrentScreen('dashboard');
+    }
   };
 
   const handleNavigate = (screen: string, assetId?: number) => {
@@ -347,6 +362,8 @@ const validateSession = async (accessToken: string) => {
         return <AdminAssetManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
       case "audit-management":
         return <AuditManagement onNavigate={handleNavigate} />;
+      case "audit-controller":
+        return <AuditController />;
       case "admin-reports":
         return <Reports onNavigate={handleNavigate} />;
       case "settings":
@@ -357,8 +374,29 @@ const validateSession = async (accessToken: string) => {
   };
 
   const renderUserContent = () => {
+    console.log('Debug - currentScreen:', currentScreen);
+    console.log('Debug - userRole:', userRole);
     switch (currentScreen) {
       case "dashboard":
+        console.log('Debug - dashboard case triggered');
+        // Show the same dashboard that appears after login
+        if (userRole === 'level1_user') {
+          console.log('Debug - level1_user condition met');
+          // Get actual user data from localStorage
+          console.log('Debug - localStorage keys:', Object.keys(localStorage));
+          console.log('Debug - localStorage user:', localStorage.getItem('user'));
+          const userData = JSON.parse(localStorage.getItem('user') || '{}');
+          console.log('Debug - userData from localStorage:', userData);
+          console.log('Debug - userData keys:', Object.keys(userData));
+          console.log('Debug - userData.department:', userData.department);
+          console.log('Debug - userData.departmentName:', userData.departmentName);
+          return <Level1UserDashboard 
+            onNavigate={handleNavigate} 
+            userName={userData.name || "User"} 
+            userDepartment={userData.department || userData.departmentName || "Department"} 
+            userHospital={userData.hospital || "Hospital"} 
+          />;
+        }
         return <Dashboard onNavigate={handleNavigate} userRole={userRole} />;
       case "assets":
       case "user-assets":
@@ -380,9 +418,17 @@ const validateSession = async (accessToken: string) => {
         return <Reports onNavigate={handleNavigate} />;
       case "settings":
         return <Settings onNavigate={handleNavigate} userRole={userRole} />;
+      case "create-request":
+        return <AssetRequestForm onNavigate={handleNavigate} userDepartment="Department" userHospital="Hospital" />;
       // Workflow Screens
-      case "requestor":
-        return <RequestorDashboard onNavigate={handleNavigate} userRole={userRole} userName="User" userDepartment="Department" />;
+      case "level1_user":
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        return <Level1UserDashboard 
+          onNavigate={handleNavigate} 
+          userName={userData.name || "User"} 
+          userDepartment={userData.department || userData.departmentName || "Department"} 
+          userHospital={userData.hospital || "Hospital"} 
+        />;
       case "approver-l1":
       case "approver-l2":
       case "approver-l3":

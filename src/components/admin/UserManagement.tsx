@@ -221,7 +221,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
     }
   };
 
-  // Fetch departments based on organization and hospital
+  // Fetch departments based on selected hospital
   const fetchDepartments = async (organizationId: string, hospitalId: string) => {
     try {
       const token = getAuthToken();
@@ -229,8 +229,8 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
         throw new Error('No authentication token found');
       }
 
-      // Try organization-specific departments first
-      let response = await fetch(`http://localhost:5001/api/v1/organizations/${organizationId}/departments`, {
+      // Fetch departments for the specific hospital
+      const response = await fetch(`http://localhost:5001/api/entity/api/v1/hospitals/${hospitalId}/departments`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -243,24 +243,16 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
         data = await response.json();
         if (data.success && data.data?.departments) {
           setDepartments(data.data.departments);
-          return;
+        } else if (data.departments) {
+          // Handle direct departments array response
+          setDepartments(data.departments);
+        } else {
+          console.warn('Unexpected departments response structure:', data);
         }
-      }
-
-      // Fallback to hospital-specific departments
-      response = await fetch(`http://localhost:5001/api/v1/hospitals/${hospitalId}/departments`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
+      } else {
+        console.warn('Failed to fetch departments, status:', response.status);
         data = await response.json();
-        if (data.success && data.data?.departments) {
-          setDepartments(data.data.departments);
-        }
+        console.warn('Departments API error response:', data);
       }
     } catch (err) {
       console.error('Error fetching departments:', err);

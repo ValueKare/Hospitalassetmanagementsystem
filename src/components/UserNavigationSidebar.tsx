@@ -15,6 +15,7 @@ import {
   Stethoscope,
   AlertTriangle,
   Bell,
+  Plus,
 } from "lucide-react";
 
 interface UserNavigationSidebarProps {
@@ -47,25 +48,17 @@ const roleMenus = {
     { id: "user-assets", label: "Assets", icon: Package },
     { id: "reports", label: "Analytics", icon: BarChart3 },
   ],
-  viewer: [
+  "level1_user": [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "reports", label: "Reports", icon: BarChart3 },
-  ],
-  doctor: [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "create-request", label: "Create Request", icon: Plus },
     { id: "user-assets", label: "Assigned Equipment", icon: Package },
     { id: "maintenance", label: "Maintenance Status", icon: Wrench },
     { id: "reports", label: "Reports", icon: BarChart3 },
-  ],
-  nurse: [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "user-assets", label: "Assigned Equipment", icon: Package },
-    { id: "maintenance", label: "Maintenance Status", icon: Wrench },
   ],
 };
 
 export function UserNavigationSidebar({ currentScreen, userRole, onNavigate, onLogout }: UserNavigationSidebarProps) {
-  const menuItems = roleMenus[userRole as keyof typeof roleMenus] || roleMenus.viewer;
+  const menuItems = roleMenus[userRole as keyof typeof roleMenus] || roleMenus.level1_user;
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col">
@@ -84,11 +77,13 @@ export function UserNavigationSidebar({ currentScreen, userRole, onNavigate, onL
       <div className="p-4 bg-[#E8F0FF] border-b border-gray-200">
         <p className="text-gray-700">
           {userRole === "department-head" && "Department Head"}
+          {userRole === "hod" && "HOD"}
           {userRole === "biomedical" && "Biomedical Manager"}
           {userRole === "store-manager" && "Store Manager"}
           {userRole === "viewer" && "Viewer"}
           {userRole === "doctor" && "Doctor"}
           {userRole === "nurse" && "Nurse"}
+          {userRole === "level1_user" && "Level 1 User"}
         </p>
       </div>
 

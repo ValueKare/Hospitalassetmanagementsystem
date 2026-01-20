@@ -51,6 +51,7 @@ const superAdminMenu = [
   { id: "entity-setup", label: "Entity Setup", icon: Building },
   { id: "admin-assets", label: "Asset Management", icon: Package },
   { id: "audit-management", label: "Audit Management", icon: ClipboardCheck },
+  { id: "audit-controller", label: "Audit Controller", icon: ClipboardCheck },
   { id: "admin-reports", label: "Reports", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -59,6 +60,7 @@ const auditAdminMenu = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "audit-users", label: "Audit Users", icon: UserCheck },
   { id: "audit-management", label: "Audit Management", icon: ClipboardCheck },
+  { id: "audit-controller", label: "Audit Controller", icon: ClipboardCheck },
   { id: "admin-reports", label: "Reports", icon: BarChart3 },
 ];
 

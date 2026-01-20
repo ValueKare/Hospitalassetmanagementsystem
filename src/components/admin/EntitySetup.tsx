@@ -492,7 +492,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`http://localhost:5001/api/hospital/${editingHospital._id}`, {
+      const response = await fetch(`http://localhost:5001/api/entity/api/hospital/${editingHospital._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -501,7 +501,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
         body: JSON.stringify(editForm)
       });
 
-      console.log('PUT request URL:', `http://localhost:5001/api/hospital/${editingHospital._id}`);
+      console.log('PUT request URL:', `http://localhost:5001/api/entity/api/hospital/${editingHospital._id}`);
       console.log('PUT request body:', editForm);
       console.log('editingHospital._id type:', typeof editingHospital._id, editingHospital._id);
 
