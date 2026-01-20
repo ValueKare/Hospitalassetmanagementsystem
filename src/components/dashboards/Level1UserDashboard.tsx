@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
+import { NotificationSystem } from '../NotificationSystem';
 
 interface Asset {
     _id: string;
@@ -534,7 +535,9 @@ export function Level1UserDashboard({
                         )}
                     </p>
                 </div>
-                <Button
+                <div className="flex items-center space-x-3">
+                    <NotificationSystem userName={userName} userDepartment={userDepartment} />
+                    <Button
                     onClick={() => {
                         // Check if currently viewing user's own department
                         if (selectedDepartment && (
@@ -553,6 +556,7 @@ export function Level1UserDashboard({
                     <Plus className="h-4 w-4 mr-2" />
                     Create Request
                 </Button>
+                </div>
             </div>
 
             {/* Tabs */}

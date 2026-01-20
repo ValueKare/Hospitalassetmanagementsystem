@@ -18,13 +18,59 @@
   --accent-foreground: #0F67FF;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
-  --success: #0EB57D;
-  --success-foreground: #FFFFFF;
-  --warning: #FFC107;
-  --warning-foreground: #2B2B2B;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --input-background: #F9FAFB;
+}
+
+/* Real-time Notification Styles */
+.notification-popup {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 9999;
+  min-width: 300px;
+  max-width: 400px;
+  animation: slideIn 0.3s ease-out;
+}
+
+.notification-content h4 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-weight: 600;
+}
+
+.notification-content p {
+  margin: 0 0 8px 0;
+  color: #666;
+}
+
+.notification-content small {
+  color: #999;
+  font-size: 12px;
+}
+
+.notification-content button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
   --switch-background: #D1D5DB;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
