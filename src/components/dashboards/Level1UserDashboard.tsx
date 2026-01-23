@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
@@ -113,14 +113,16 @@ export function Level1UserDashboard({
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     const organizationName = userData.organizationId || 'Unknown Organization';
     
+    const [requests, setRequests] = useState<any[]>([]);
+    const [allRequests, setAllRequests] = useState<any[]>([]);
+    const [filteredRequests, setFilteredRequests] = useState<any[]>([]);
+    const [departments, setDepartments] = useState<any[]>([]);
     const [assets, setAssets] = useState<Asset[]>([]);
-    const [requests, setRequests] = useState<Request[]>([]);
-    const [departments, setDepartments] = useState<Department[]>([]);
-    const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
-    const [departmentAssets, setDepartmentAssets] = useState<Asset[]>([]);
+    const [selectedDepartment, setSelectedDepartment] = useState<any>(null);
+    const [activeTab, setActiveTab] = useState<'departments' | 'requests'>('departments');
+    const [requestTypeTab, setRequestTypeTab] = useState<'all' | 'generic' | 'specific'>('generic'); // Default to generic for priority
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState<'assets' | 'requests' | 'history' | 'departments'>('assets');
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -198,7 +200,7 @@ export function Level1UserDashboard({
                 const data = await response.json();
                 console.log('Department assets data received:', data);
                 console.log('Department assets array:', data.data);
-                setDepartmentAssets(data.data || []);
+                setAssets(data.data || []);
             } else {
                 const errorText = await response.text();
                 console.log('Error response:', errorText);
@@ -342,7 +344,79 @@ export function Level1UserDashboard({
                     console.log('First request keys:', Object.keys(data.data[0]));
                 }
                 
-                setRequests(data.data || []);
+                // Filter requests based on type
+                const filteredRequests = data.data.filter((request: any) => {
+                    // Check if it's a generic asset request (has generic_request in assetDepartmentMap)
+                    const isGenericAssetRequest = request.assetDepartmentMap?.generic_request;
+                    
+                    // Check if it's a specific asset request (has requestedAssets array with asset IDs AND no generic_request)
+                    const isSpecificAssetRequest = request.requestedAssets && 
+                                                  Array.isArray(request.requestedAssets) && 
+                                                  !request.assetDepartmentMap?.generic_request;
+                    
+                    console.log('Request ID:', request._id);
+                    console.log('Asset Category:', request.assetCategory);
+                    console.log('Requested Assets:', request.requestedAssets);
+                    console.log('Asset Department Map:', request.assetDepartmentMap);
+                    console.log('Asset Department Map keys:', Object.keys(request.assetDepartmentMap || {}));
+                    console.log('Asset Department Map generic_request:', request.assetDepartmentMap?.generic_request);
+                    console.log('Is specific asset request:', isSpecificAssetRequest);
+                    console.log('Is generic asset request:', isGenericAssetRequest);
+                    console.log('Request department ID:', request.scope?.departmentId?._id);
+                    console.log('Request department name:', request.scope?.departmentId?.name || 'Unknown');
+                    console.log('User department ID:', userDepartment);
+                    
+                    if (isSpecificAssetRequest) {
+                        // For specific asset requests, show to departments that currently hold the requested assets
+                        const assetDepartmentIds = Object.values(request.assetDepartmentMap || {})
+                            .map((asset: any) => asset.departmentId)
+                            .filter(Boolean);
+                        
+                        console.log('Specific request - asset department IDs:', assetDepartmentIds);
+                        console.log('User department ID:', userDepartment);
+                        
+                        // Show request if user's department holds any of the requested assets
+                        const userHasRequestedAsset = assetDepartmentIds.includes(userDepartment);
+                        console.log('User has requested asset:', userHasRequestedAsset);
+                        
+                        return userHasRequestedAsset;
+                    } else if (isGenericAssetRequest) {
+                        // For generic asset requests, show all
+                        console.log('Generic request - showing all');
+                        return true;
+                    }
+                    
+                    // Default: show all other types
+                    console.log('Default case - showing all');
+                    return true;
+                });
+                
+                console.log('Filtered requests count:', filteredRequests.length);
+                console.log('Filtered requests:', filteredRequests);
+                
+                // Set all requests for total count
+                setAllRequests(filteredRequests);
+                
+                // Apply request type filtering
+                let finalFilteredRequests = filteredRequests;
+                if (requestTypeTab === 'generic') {
+                    finalFilteredRequests = filteredRequests.filter(req => {
+                        const isGeneric = req.assetDepartmentMap?.generic_request;
+                        console.log('Generic tab - Request ID:', req._id, 'Is generic:', isGeneric, 'assetDepartmentMap:', req.assetDepartmentMap);
+                        return isGeneric;
+                    });
+                } else if (requestTypeTab === 'specific') {
+                    finalFilteredRequests = filteredRequests.filter(req => {
+                        const isGeneric = req.assetDepartmentMap?.generic_request;
+                        const isSpecific = !isGeneric;
+                        console.log('Specific tab - Request ID:', req._id, 'Is generic:', isGeneric, 'Is specific:', isSpecific, 'assetDepartmentMap:', req.assetDepartmentMap);
+                        return isSpecific;
+                    });
+                }
+                // 'all' shows all filtered requests
+                
+                console.log('Final filtered requests for tab:', requestTypeTab, finalFilteredRequests.length, finalFilteredRequests);
+                setRequests(finalFilteredRequests);
             } else {
                 const errorText = await response.text();
                 console.log('Requests error response:', errorText);
@@ -506,12 +580,15 @@ export function Level1UserDashboard({
     );
 
     useEffect(() => {
+        fetchRequests();
+    }, [requestTypeTab]);
+
+    useEffect(() => {
         if (activeTab === 'departments' && !selectedDepartment) {
             fetchDepartments();
         } else if (activeTab === 'assets') {
             fetchAssets();
         }
-        fetchRequests();
     }, [activeTab, selectedDepartment]);
 
     return (
@@ -760,7 +837,7 @@ export function Level1UserDashboard({
                             </Button>
                             <div>
                                 <h2 className="text-xl font-semibold">{selectedDepartment.name}</h2>
-                                <p className="text-gray-600">{selectedDepartment.code} • {departmentAssets.length} Ideal Assets</p>
+                                <p className="text-gray-600">{selectedDepartment.code} • {assets.length} Ideal Assets</p>
                                 {(selectedDepartment.name === userDepartment || selectedDepartment.code === userDepartment) && (
                                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 mt-1">
                                         Your Department
@@ -810,7 +887,7 @@ export function Level1UserDashboard({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {departmentAssets.map((asset) => (
+                                            {assets.map((asset) => (
                                                 <tr key={asset._id} className="border-b hover:bg-gray-50">
                                                     <td className="p-3 font-medium">{asset.assetName}</td>
                                                     <td className="p-3">{asset.assetCode}</td>
@@ -878,7 +955,7 @@ export function Level1UserDashboard({
                                     </thead>
 
                                     <tbody>
-                                        {filteredAssets.map(asset => (
+                                        {filteredAssets.filter(asset => asset && asset._id).map(asset => (
                                             <tr key={asset._id} className="border-b hover:bg-gray-50">
                                                 <td className="p-3 font-medium">{asset.assetName}</td>
                                                 <td className="p-3">{asset.category}</td>
@@ -888,7 +965,7 @@ export function Level1UserDashboard({
                                                         <div className="flex items-center gap-1">
                                                             {getStatusIcon(asset.utilizationStatus)}
                                                             <span className="capitalize">
-                                                                {asset.utilizationStatus.replace("_", " ")}
+                                                                {asset.utilizationStatus ? asset.utilizationStatus.replace("_", " ") : "Unknown"}
                                                             </span>
                                                         </div>
                                                     </Badge>
@@ -938,39 +1015,159 @@ export function Level1UserDashboard({
             {activeTab === 'requests' && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Open Requests</CardTitle>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <CardTitle className="text-2xl font-bold text-gray-900">Open Requests</CardTitle>
+                                <CardDescription className="text-gray-600 mt-1">
+                                    Review and fulfill asset transfer requests
+                                </CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    📊 Total: {allRequests.length}
+                                </Badge>
+                                {requestTypeTab === 'generic' && (
+                                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                                        🎯 Generic: {allRequests.filter(req => req.assetDepartmentMap?.generic_request).length}
+                                    </Badge>
+                                )}
+                                {requestTypeTab === 'specific' && (
+                                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                                        📦 Specific: {allRequests.filter(req => !req.assetDepartmentMap?.generic_request).length}
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {/* Enhanced Request Type Tabs */}
+                        <div className="flex gap-1 mt-4 p-1 bg-gray-50 rounded-lg">
+                            <button
+                                onClick={() => setRequestTypeTab('generic')}
+                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold transition-all duration-200 ${
+                                    requestTypeTab === 'generic'
+                                        ? 'bg-white text-blue-700 shadow-sm border border-blue-200'
+                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                }`}
+                            >
+                                <span className="text-lg">🎯</span>
+                                <span>Generic</span>
+                                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700">
+                                    {allRequests.filter(req => req.assetDepartmentMap?.generic_request).length}
+                                </Badge>
+                            </button>
+                            <button
+                                onClick={() => setRequestTypeTab('specific')}
+                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold transition-all duration-200 ${
+                                    requestTypeTab === 'specific'
+                                        ? 'bg-white text-green-700 shadow-sm border border-green-200'
+                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                }`}
+                            >
+                                <span className="text-lg">📦</span>
+                                <span>Specific</span>
+                                <Badge variant="secondary" className="ml-2 bg-green-100 text-green-700">
+                                    {allRequests.filter(req => !req.assetDepartmentMap?.generic_request).length}
+                                </Badge>
+                            </button>
+                            <button
+                                onClick={() => setRequestTypeTab('all')}
+                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold transition-all duration-200 ${
+                                    requestTypeTab === 'all'
+                                        ? 'bg-white text-gray-700 shadow-sm border border-gray-300'
+                                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                }`}
+                            >
+                                <span className="text-lg">📋</span>
+                                <span>All</span>
+                                <Badge variant="secondary" className="ml-2 bg-gray-100 text-gray-700">
+                                    {allRequests.length}
+                                </Badge>
+                            </button>
+                        </div>
+                        
+                        {/* Priority Indicator */}
+                        {requestTypeTab === 'generic' && (
+                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-blue-600 font-semibold">🎯 Priority View</span>
+                                    <span className="text-sm text-blue-700">Generic requests are shown first for immediate attention</span>
+                                </div>
+                            </div>
+                        )}
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
-                                    <tr className="border-b">
-                                        <th className="text-left p-3 font-medium">Request ID</th>
-                                        <th className="text-left p-3 font-medium">Assets</th>
-                                        <th className="text-left p-3 font-medium">Priority</th>
-                                        <th className="text-left p-3 font-medium">Fulfillment</th>
-                                        <th className="text-left p-3 font-medium">Actions</th>
+                                    <tr className="border-b bg-gray-50">
+                                        <th className="text-left p-3 font-semibold text-gray-700">Request ID</th>
+                                        <th className="text-left p-3 font-semibold text-gray-700">Type</th>
+                                        <th className="text-left p-3 font-semibold text-gray-700">Assets</th>
+                                        <th className="text-left p-3 font-semibold text-gray-700">Priority</th>
+                                        <th className="text-left p-3 font-semibold text-gray-700">Fulfillment</th>
+                                        <th className="text-left p-3 font-semibold text-gray-700">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {pendingRequests.map((request) => (
-                                        <tr key={request._id} className="border-b hover:bg-gray-50">
-                                            <td className="p-3 font-medium">{request._id}</td>
+                                    {requests.map((request) => {
+                                        const isGeneric = request.assetDepartmentMap?.generic_request;
+                                        return (
+                                        <tr key={request._id} className="border-b hover:bg-gray-50 transition-colors">
                                             <td className="p-3">
-                                                <div className="space-y-1">
-                                                    <div className="text-sm font-medium">{request.assetName}</div>
-                                                    <div className="text-xs text-gray-500">{request.assetCategory}</div>
-                                                    <div className="text-xs text-gray-500">{request.requestedAssets?.length || 0} asset(s) requested</div>
+                                                <div className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                                                    {request._id.slice(-8)}
                                                 </div>
                                             </td>
                                             <td className="p-3">
-                                                <Badge className={getPriorityColor(request.priority)}>
-                                                    {request.priority.toUpperCase()}
+                                                <Badge className={`${
+                                                    isGeneric 
+                                                        ? 'bg-blue-100 text-blue-700 border-blue-200' 
+                                                        : 'bg-green-100 text-green-700 border-green-200'
+                                                }`}>
+                                                    <div className="flex items-center gap-1">
+                                                        <span>{isGeneric ? '🎯' : '📦'}</span>
+                                                        <span className="font-medium">
+                                                            {isGeneric ? 'Generic' : 'Specific'}
+                                                        </span>
+                                                    </div>
                                                 </Badge>
                                             </td>
                                             <td className="p-3">
-                                                <div className="text-sm">
-                                                    {request.fulfillment?.fulfilledCount || 0} / {request.requestedAssets?.length || 0}
+                                                <div className="space-y-2">
+                                                    <div className="font-medium text-gray-900">{request.assetCategory}</div>
+                                                    {isGeneric ? (
+                                                        <div className="text-sm text-blue-600">
+                                                            Generic request for {request.assetCategory} assets
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-sm text-green-600">
+                                                            {request.requestedAssets?.length || 0} specific asset(s) requested
+                                                        </div>
+                                                    )}
+                                                    <div className="text-xs text-gray-500">
+                                                        From: {request.scope?.departmentId?.name || 'Unknown Department'}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-3">
+                                                <Badge className={`${getPriorityColor(request.priority)} font-medium`}>
+                                                    {request.priority?.toUpperCase() || 'NORMAL'}
+                                                </Badge>
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-sm">
+                                                        <span className="font-medium">{request.fulfillment?.fulfilledCount || 0}</span>
+                                                        <span className="text-gray-500"> / {request.requestedAssets?.length || 1}</span>
+                                                    </div>
+                                                    <div className="w-16 bg-gray-200 rounded-full h-2">
+                                                        <div 
+                                                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                                            style={{ 
+                                                                width: `${Math.min((request.fulfillment?.fulfilledCount || 0) / (request.requestedAssets?.length || 1) * 100, 100)}%` 
+                                                            }}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="p-3">
@@ -998,7 +1195,8 @@ export function Level1UserDashboard({
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

@@ -19,7 +19,7 @@ interface UserAuditManagementProps {
 
 const myAudits = [
   { id: 1, title: "Cardiology Department Audit", requestedDate: "2025-10-01", status: "approved", progress: 65, totalAssets: 245, scannedAssets: 159 },
-  { id: 2, title: "Emergency Wing Asset Verification", requestedDate: "2025-09-25", status: "completed", progress: 100, totalAssets: 156, scannedAssets: 156 },
+  { id: 2, title: "Emergency Wing Asset Verification", requestedDate: "2025-09-25", status: "submitted", progress: 100, totalAssets: 156, scannedAssets: 156 },
   { id: 3, title: "Annual Equipment Audit", requestedDate: "2025-10-12", status: "pending", progress: 0, totalAssets: 0, scannedAssets: 0 },
 ];
 
@@ -83,7 +83,7 @@ export function UserAuditManagement({ onNavigate }: UserAuditManagementProps) {
         <Card className="border-0 shadow-md">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-gray-600">Completed</CardTitle>
+              <CardTitle className="text-gray-600">Submitted</CardTitle>
               <FileCheck className="h-5 w-5 text-[#0EB57D]" />
             </div>
           </CardHeader>
@@ -219,10 +219,10 @@ export function UserAuditManagement({ onNavigate }: UserAuditManagementProps) {
                       <CardDescription>Requested on {audit.requestedDate}</CardDescription>
                     </div>
                     <Badge 
-                      variant={audit.status === "approved" ? "default" : audit.status === "completed" ? "default" : "secondary"}
+                      variant={audit.status === "approved" ? "default" : audit.status === "submitted" ? "default" : "secondary"}
                       className={
                         audit.status === "approved" ? "bg-[#0F67FF] hover:bg-[#0F67FF]" :
-                        audit.status === "completed" ? "bg-[#0EB57D] hover:bg-[#0EB57D]" : ""
+                        audit.status === "submitted" ? "bg-[#0EB57D] hover:bg-[#0EB57D]" : ""
                       }
                     >
                       {audit.status === "approved" ? "In Progress" : audit.status}
@@ -254,7 +254,7 @@ export function UserAuditManagement({ onNavigate }: UserAuditManagementProps) {
                       <span>Awaiting admin approval</span>
                     </div>
                   )}
-                  {audit.status === "completed" && (
+                  {audit.status === "submitted" && (
                     <div className="flex gap-2">
                       <Button variant="outline">View Report</Button>
                       <Button variant="outline">Download PDF</Button>
@@ -271,14 +271,14 @@ export function UserAuditManagement({ onNavigate }: UserAuditManagementProps) {
           <Card className="border-0 shadow-md">
             <CardHeader>
               <CardTitle className="text-gray-900">Audit History</CardTitle>
-              <CardDescription>All completed audits for your department</CardDescription>
+              <CardDescription>All submitted audits for your department</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Audit Title</TableHead>
-                    <TableHead>Date Completed</TableHead>
+                    <TableHead>Date submitted</TableHead>
                     <TableHead>Assets Audited</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -290,7 +290,7 @@ export function UserAuditManagement({ onNavigate }: UserAuditManagementProps) {
                     <TableCell className="text-gray-600">2025-09-28</TableCell>
                     <TableCell>245</TableCell>
                     <TableCell>
-                      <Badge className="bg-[#0EB57D] hover:bg-[#0EB57D]">Completed</Badge>
+                      <Badge className="bg-[#0EB57D] hover:bg-[#0EB57D]">submitted</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm">View Report</Button>
@@ -301,7 +301,7 @@ export function UserAuditManagement({ onNavigate }: UserAuditManagementProps) {
                     <TableCell className="text-gray-600">2025-08-15</TableCell>
                     <TableCell>312</TableCell>
                     <TableCell>
-                      <Badge className="bg-[#0EB57D] hover:bg-[#0EB57D]">Completed</Badge>
+                      <Badge className="bg-[#0EB57D] hover:bg-[#0EB57D]">submitted</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm">View Report</Button>

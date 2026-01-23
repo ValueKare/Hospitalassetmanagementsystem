@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { ClipboardCheck, FileCheck, Clock, Users, AlertCircle, TrendingUp } from "lucide-react";
+import { ClipboardCheck, FileCheck, Clock, Users, AlertCircle, TrendingUp, PlayCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { Progress } from "../ui/progress";
 
@@ -100,6 +100,13 @@ export function AuditAdminDashboard({ onNavigate }: AuditAdminDashboardProps) {
           <CardDescription>Manage your audit tasks</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
+          <Button 
+            onClick={() => onNavigate("initiate-audit")}
+            className="bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] hover:from-[#7C3AED] hover:to-[#8B5CF6]"
+          >
+            <PlayCircle className="h-4 w-4 mr-2" />
+            Initiate New Audit
+          </Button>
           <Button 
             onClick={() => onNavigate("audit-management")}
             className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC] hover:from-[#0B4FCC] hover:to-[#0F67FF]"

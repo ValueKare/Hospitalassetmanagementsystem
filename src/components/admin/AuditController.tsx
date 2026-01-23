@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Textarea } from "../ui/textarea";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import {
   Table,
@@ -20,38 +22,93 @@ import {
   CheckCircle,
   FileText,
   Lock,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getAuditAssets } from "../audit_admin/auditService";
 
 interface AuditAsset {
-  id: number;
-  asset_code: string;
-  asset_name: string;
-  location: string;
-  department: string;
-  system_status: string;
+  _id: string;
+  assetKey: string;
+  physicalStatus: string;
+  locationMatched: boolean;
+  assetDetails?: {
+    assetName: string;
+    assetCode: string;
+    departmentId?: { name: string };
+    buildingId?: { name: string };
+  };
+}
+
+interface OverallStats {
+  totalAssets: number;
+  verifiedAssets: number;
+  discrepancyAssets: number;
+  pendingAssets: number;
+  verificationRate: string;
+}
+
+interface DepartmentGroup {
+  departmentId: string;
+  departmentName: string;
+  stats: {
+    total: number;
+    verified: number;
+    discrepancies: number;
+    pending: number;
+  };
 }
 
 export function AuditController() {
   const [assets, setAssets] = useState<AuditAsset[]>([]);
   const [auditCycle, setAuditCycle] = useState("quarterly");
   const [locked, setLocked] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [auditId, setAuditId] = useState("");
+  const [overallStats, setOverallStats] = useState<OverallStats | null>(null);
+  const [departmentStats, setDepartmentStats] = useState<DepartmentGroup[]>([]);
 
-  useEffect(() => {
-    // Fetch assets under audit
-    fetch("http://localhost:5001/api/audit/assets")
-      .then((res) => res.json())
-      .then((data) => setAssets(data))
-      .catch(() => toast.error("Failed to load audit assets"));
-  }, []);
+  const fetchAssets = async () => {
+    if (!auditId.trim()) {
+      toast.error("Please enter an Audit ID");
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await getAuditAssets(auditId);
+      setAssets(res.data.auditAssets || []);
+      setOverallStats(res.data.overallStats || null);
+      setDepartmentStats(res.data.assetsByDepartment || []);
+      toast.success(`Loaded ${res.data.auditAssets?.length || 0} assets`);
+    } catch (err: any) {
+      console.error("Error fetching audit assets:", err);
+      toast.error(err.response?.data?.message || "Failed to load audit assets");
+      setAssets([]);
+      setOverallStats(null);
+      setDepartmentStats([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLockAssets = () => {
     setLocked(true);
     toast.success("Assets locked for audit. No modifications allowed.");
   };
 
-  const handleVerify = (id: number, status: string) => {
-    toast.success(`Asset ${id} marked as ${status}`);
+  const handleVerify = (assetKey: string, status: string) => {
+    toast.success(`Asset ${assetKey} marked as ${status}`);
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    const colors: Record<string, string> = {
+      found: "bg-green-100 text-green-800",
+      not_found: "bg-red-100 text-red-800",
+      damaged: "bg-orange-100 text-orange-800",
+      excess: "bg-blue-100 text-blue-800",
+      pending: "bg-gray-100 text-gray-800",
+    };
+    return colors[status] || "bg-gray-100 text-gray-800";
   };
 
   return (
@@ -66,6 +123,101 @@ export function AuditController() {
           Physical verification and compliance audit of assets
         </p>
       </div>
+
+      {/* Audit ID Input */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Load Audit Assets</CardTitle>
+          <CardDescription>Enter an Audit ID to load assets for verification</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Enter Audit ID (e.g., AUD-2025-001 or MongoDB ObjectId)"
+                value={auditId}
+                onChange={(e) => setAuditId(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && fetchAssets()}
+              />
+            </div>
+            <Button onClick={fetchAssets} disabled={loading} className="bg-[#0F67FF]">
+              <Search className="h-4 w-4 mr-2" />
+              {loading ? "Loading..." : "Load Assets"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Overall Stats */}
+      {overallStats && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Card className="border-0 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Total Assets</p>
+              <p className="text-2xl font-bold text-gray-900">{overallStats.totalAssets}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Verified</p>
+              <p className="text-2xl font-bold text-green-600">{overallStats.verifiedAssets}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Pending</p>
+              <p className="text-2xl font-bold text-orange-500">{overallStats.pendingAssets}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Discrepancies</p>
+              <p className="text-2xl font-bold text-red-600">{overallStats.discrepancyAssets}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="pt-4">
+              <p className="text-sm text-gray-500">Verification Rate</p>
+              <p className="text-2xl font-bold text-[#0F67FF]">{overallStats.verificationRate}%</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Department Stats */}
+      {departmentStats.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Department-wise Progress</CardTitle>
+            <CardDescription>Verification status by department</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {departmentStats.map((dept) => (
+                <div key={dept.departmentId} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-medium text-gray-900">{dept.departmentName}</p>
+                    <Badge variant="secondary">{dept.stats.total} assets</Badge>
+                  </div>
+                  <div className="flex gap-2 text-sm">
+                    <Badge className="bg-green-100 text-green-800">{dept.stats.verified} verified</Badge>
+                    <Badge className="bg-orange-100 text-orange-800">{dept.stats.pending} pending</Badge>
+                    {dept.stats.discrepancies > 0 && (
+                      <Badge className="bg-red-100 text-red-800">{dept.stats.discrepancies} issues</Badge>
+                    )}
+                  </div>
+                  <div className="mt-2 bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-[#0F67FF] h-2 rounded-full transition-all"
+                      style={{ width: `${dept.stats.total > 0 ? (dept.stats.verified / dept.stats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Audit Controls */}
       <Card>
@@ -85,11 +237,15 @@ export function AuditController() {
             <Badge variant="outline">
               Cycle: {auditCycle.toUpperCase()}
             </Badge>
+            
+            {assets.length > 0 && (
+              <Badge variant="secondary">{assets.length} assets loaded</Badge>
+            )}
           </div>
 
           <Button
             onClick={handleLockAssets}
-            disabled={locked}
+            disabled={locked || assets.length === 0}
             className="bg-red-600 hover:bg-red-700"
           >
             <Lock className="h-4 w-4 mr-2" />
@@ -111,52 +267,77 @@ export function AuditController() {
           <Card>
             <CardHeader>
               <CardTitle>Asset Verification</CardTitle>
+              <CardDescription>
+                {assets.length === 0 
+                  ? "Enter an Audit ID above to load assets" 
+                  : `${assets.length} assets loaded for verification`}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Asset Code</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Verify</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {assets.map((asset) => (
-                    <TableRow key={asset.id}>
-                      <TableCell>{asset.asset_code}</TableCell>
-                      <TableCell>{asset.asset_name}</TableCell>
-                      <TableCell>{asset.location}</TableCell>
-                      <TableCell>{asset.department}</TableCell>
-                      <TableCell>
-                        <Badge>{asset.system_status}</Badge>
-                      </TableCell>
-                      <TableCell className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleVerify(asset.id, "Verified")}
-                        >
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleVerify(asset.id, "Mismatch")}
-                        >
-                          <AlertTriangle className="h-4 w-4 text-orange-600" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <QrCode className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F67FF]"></div>
+                </div>
+              ) : assets.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  No assets loaded. Enter an Audit ID and click "Load Assets" to begin.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Asset Key</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Building</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Location Match</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {assets.map((asset) => (
+                      <TableRow key={asset._id}>
+                        <TableCell className="font-mono text-sm">{asset.assetKey}</TableCell>
+                        <TableCell>{asset.assetDetails?.assetName || "N/A"}</TableCell>
+                        <TableCell>{asset.assetDetails?.buildingId?.name || "N/A"}</TableCell>
+                        <TableCell>{asset.assetDetails?.departmentId?.name || "N/A"}</TableCell>
+                        <TableCell>
+                          <Badge className={getStatusBadgeColor(asset.physicalStatus)}>
+                            {asset.physicalStatus || "pending"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {asset.locationMatched ? (
+                            <Badge className="bg-green-100 text-green-800">Yes</Badge>
+                          ) : (
+                            <Badge className="bg-red-100 text-red-800">No</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleVerify(asset.assetKey, "Verified")}
+                          >
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleVerify(asset.assetKey, "Mismatch")}
+                          >
+                            <AlertTriangle className="h-4 w-4 text-orange-600" />
+                          </Button>
+                          <Button size="sm" variant="outline">
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

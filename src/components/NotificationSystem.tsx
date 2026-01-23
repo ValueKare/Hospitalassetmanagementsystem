@@ -37,6 +37,58 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
   const [isOpen, setIsOpen] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    // Get user preference from localStorage
+    const saved = localStorage.getItem('notificationSoundEnabled');
+    return saved !== null ? JSON.parse(saved) : true; // Default to enabled
+  });
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    if (!soundEnabled) {
+      console.log('🔔 Notification sound disabled by user');
+      return;
+    }
+
+    try {
+      // Create audio context for notification sound
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Create a simple notification sound using Web Audio API
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Set sound properties (pleasant notification tone)
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start frequency
+      oscillator.frequency.exponentialRampToValueAtTime(600, audioContext.currentTime + 0.1); // End frequency
+      oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.2); // Final frequency
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Start volume
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3); // Fade out
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+      
+      console.log('🔔 Played notification sound');
+    } catch (error) {
+      console.error('🔔 Error playing notification sound:', error);
+    }
+  };
+
+  // Toggle sound preference
+  const toggleSound = () => {
+    const newSoundEnabled = !soundEnabled;
+    setSoundEnabled(newSoundEnabled);
+    localStorage.setItem('notificationSoundEnabled', JSON.stringify(newSoundEnabled));
+    
+    // Play test sound when enabling
+    if (newSoundEnabled) {
+      playNotificationSound();
+    }
+  };
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('accessToken');
@@ -87,6 +139,9 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
 
     newSocket.on('new_notification', (notification: Notification) => {
       console.log('📬 New notification received:', notification);
+      
+      // Play notification sound
+      playNotificationSound();
       
       // Add new notification to state
       setNotifications(prev => [notification, ...prev]);
@@ -236,6 +291,10 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
           size="sm"
           onClick={() => {
             console.log('🧪 Testing notification popup manually...');
+            
+            // Play test sound
+            playNotificationSound();
+            
             const testNotification: Notification = {
               _id: 'test_' + Date.now(),
               id: 'test_' + Date.now(),
@@ -292,6 +351,17 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
                 Notifications {isConnected && '🟢'}
               </h3>
               <div className="flex items-center space-x-2">
+                {/* Sound Toggle */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleSound}
+                  className="text-xs"
+                  title={soundEnabled ? 'Disable notification sound' : 'Enable notification sound'}
+                >
+                  {soundEnabled ? '🔊' : '🔇'}
+                </Button>
+                
                 {unreadCount > 0 && (
                   <Button
                     variant="ghost"

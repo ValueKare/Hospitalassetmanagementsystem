@@ -13,6 +13,14 @@ import { UserRightsManagement } from "./components/admin/UserRightsManagement";
 import { AdminAssetManagement } from "./components/admin/AdminAssetManagement";
 import { AuditController } from "./components/admin/AuditController";
 
+// Audit Admin Components
+import AuditDashboard from "./components/audit_admin/AuditDashboard";
+import AuditSummary from "./components/audit_admin/AuditSummary";
+import InitiateAudit from "./components/audit_admin/InitiateAudit";
+import VerifyAuditAsset from "./components/audit_admin/VerifyAuditAsset";
+import AuditList from "./components/audit_admin/AuditList";
+import AuditAction from "./components/audit_admin/AuditAction";
+
 // User Panel Dashboards
 import { AdminDashboard } from "./components/dashboards/AdminDashboard";
 import { DepartmentHeadDashboard } from "./components/dashboards/DepartmentHeadDashboard";
@@ -62,6 +70,15 @@ type Screen =
   | "audit-management"
   | "audit-controller"
   | "admin-reports"
+  | "settings"
+  // Audit Admin Screens
+  | "initiate-audit"
+  | "audit-dashboard"
+  | "audit-verify-asset"
+  | "audit-summary"
+  | "audit-list"
+  | "audit-action"
+  | "audit-details"
   // User Panel Screens
   | "assets"
   | "user-assets"
@@ -75,21 +92,27 @@ type Screen =
   | "reports" 
   | "settings"
   // Workflow Screens
-  | "requestor"
-  | "approver-l1"
-  | "approver-l2"
-  | "approver-l3"
-  | "hod-dashboard"
-  | "inventory-dashboard"
-  | "purchase-dashboard"
-  | "budget-dashboard"
-  | "cfo-dashboard";
+  | "create-request"
+  | "approve-request"
+  | "transfer-asset"
+  | "receive-asset"
+  | "maintenance-approval"
+  | "budget-approval"
+  | "cfo"
+  | "viewer"
+  | "doctor"
+  | "nurse"
+  | "level-1-approver"
+  | "level-2-approver"
+  | "level-3-approver"
+  | "level1_user";
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("login");
   const [userRole, setUserRole] = useState<string>("");
   const [userPanel, setUserPanel] = useState<string>(""); // "admin" or "user"
   const [selectedAssetId, setSelectedAssetId] = useState<number | undefined>();
+  const [selectedAuditId, setSelectedAuditId] = useState<string | undefined>();
   const [selectedEntity, setSelectedEntity] = useState<any>(null);
   const [entityLoading, setEntityLoading] = useState(true);
 
@@ -208,10 +231,15 @@ const validateSession = async (accessToken: string) => {
     }
   };
 
-  const handleNavigate = (screen: string, assetId?: number) => {
+  const handleNavigate = (screen: string, id?: number | string) => {
     setCurrentScreen(screen as Screen);
-    if (assetId !== undefined) {
-      setSelectedAssetId(assetId);
+    // Handle both assetId (number) and auditId (string)
+    if (id !== undefined) {
+      if (typeof id === 'number') {
+        setSelectedAssetId(id);
+      } else if (typeof id === 'string') {
+        setSelectedAuditId(id);
+      }
     }
   };
 
@@ -229,6 +257,7 @@ const validateSession = async (accessToken: string) => {
     setUserRole("");
     setUserPanel("");
     setSelectedAssetId(undefined);
+    setSelectedAuditId(undefined);
     setSelectedEntity(null);
     setEntityLoading(true);
   };
@@ -305,7 +334,7 @@ const validateSession = async (accessToken: string) => {
   const renderAdminDashboard = () => {
     if (userRole === "superadmin") {
       return <SuperAdminDashboard onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
-    } else if (userRole === "audit-admin") {
+    } else if (userRole === "audit-admin" || userRole === "audit_admin") {
       return <AuditAdminDashboard onNavigate={handleNavigate} />;
     } else if (userRole === "admin") {
       return <AdminDashboard onNavigate={handleNavigate} />;
@@ -368,6 +397,41 @@ const validateSession = async (accessToken: string) => {
         return <Reports onNavigate={handleNavigate} />;
       case "settings":
         return <Settings onNavigate={handleNavigate} userRole={userRole} />;
+      // Audit Admin Screens
+      case "initiate-audit":
+        return <InitiateAudit onNavigate={handleNavigate} />;
+      case "audit-summary":
+        return selectedAuditId ? (
+          <AuditSummary onNavigate={handleNavigate} auditId={selectedAuditId} />
+        ) : (
+          renderAdminDashboard()
+        );
+      case "audit-list":
+        return <AuditList onNavigate={handleNavigate} />;
+      case "audit-action":
+        return selectedAuditId ? (
+          <AuditAction onNavigate={handleNavigate} auditId={selectedAuditId} />
+        ) : (
+          <AuditList onNavigate={handleNavigate} />
+        );
+      case "audit-details":
+        return selectedAuditId ? (
+          <AuditDashboard onNavigate={handleNavigate} auditId={selectedAuditId} />
+        ) : (
+          <AuditList onNavigate={handleNavigate} />
+        );
+      case "audit-dashboard":
+        return selectedAuditId ? (
+          <AuditDashboard onNavigate={handleNavigate} auditId={selectedAuditId} />
+        ) : (
+          <InitiateAudit onNavigate={handleNavigate} />
+        );
+      case "audit-verify-asset":
+        return selectedAuditId ? (
+          <VerifyAuditAsset onNavigate={handleNavigate} auditId={selectedAuditId} />
+        ) : (
+          renderAdminDashboard()
+        );
       default:
         return renderAdminDashboard();
     }

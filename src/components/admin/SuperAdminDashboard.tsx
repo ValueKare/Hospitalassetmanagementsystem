@@ -214,8 +214,11 @@ interface DashboardSummary {
 }
 
 interface DepartmentData {
-  _id: string;
-  value: number;
+  department?: string;
+  assetCount?: number;
+  // Legacy fields for backwards compatibility
+  _id?: string;
+  value?: number;
 }
 
 interface TransformedDepartmentData {
@@ -398,8 +401,8 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
         const transformedAssetCategoryData: TransformedDepartmentData[] = Array.isArray(departmentData) ? departmentData.map((item: DepartmentData, index: number) => {
           console.log(`Transforming item ${index}:`, item);
           return {
-            name: item._id || 'Unknown',
-            value: item.value,
+            name: item.department || item._id || 'Unknown',
+            value: item.assetCount ?? item.value ?? 0,
             color: assetCategoryColors[index % assetCategoryColors.length]
           };
         }) : [];
