@@ -60,12 +60,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setIsLoading(true);
 
     try {
-      // const isAdminLogin = selectedRole === "admin" || email.includes("admin");
-      // const apiUrl = isAdminLogin 
-      //   ? "http://localhost:5001/api/auth/hospital-admin/login"
-      //   : "http://localhost:5001/api/auth/user/login";
-      // const apiUrl = "http://localhost:5001/api/auth/login";
-      const apiUrl = "http://localhost:5001/api/auth/login";
+      const apiUrl = `${API_BASE_URL}/api/auth/login`;
 
       const requestBody: any = {
         organizationId,

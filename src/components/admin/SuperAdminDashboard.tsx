@@ -7,8 +7,9 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
+
 // API configuration
-const API_BASE_URL = "http://localhost:5001/api/dashboard";
+const API_BASE_URL = "http://localhost:5001";
 
 // API functions
 export const getDashboardSummary = async (hospitalId?: string) => {
@@ -16,7 +17,7 @@ export const getDashboardSummary = async (hospitalId?: string) => {
     const url = hospitalId 
       ? `${API_BASE_URL}/summary?hospitalId=${hospitalId}`
       : `${API_BASE_URL}/summary`;
-    
+
     console.log('Fetching summary from:', url);
     const response = await fetch(url);
     console.log('Summary response status:', response.status);
@@ -26,7 +27,7 @@ export const getDashboardSummary = async (hospitalId?: string) => {
       console.error('Summary API error response:', errorText);
       throw new Error(`Failed to fetch dashboard summary: ${response.status} ${errorText}`);
     }
-    
+
     const data: DashboardSummaryResponse = await response.json();
     console.log('Summary data received:', JSON.stringify(data, null, 2));
     return data;
@@ -62,7 +63,7 @@ export const getUtilizationData = async () => {
     console.log('Fetching utilization from:', `${API_BASE_URL}/utilization`);
     const response = await fetch(`${API_BASE_URL}/utilization`);
     console.log('Utilization response status:', response.status);
-    
+   
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Utilization API error response:', errorText);

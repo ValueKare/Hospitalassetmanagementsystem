@@ -1,5 +1,6 @@
 const BASE_URL = "http://localhost:5001/api/audit";
 
+
 const getAuthHeaders = () => {
   const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
   return {
@@ -110,7 +111,7 @@ export const getAuditAssets = async (
 
 // Get hospital departments
 export const getHospitalDepartments = async (hospitalId: string) => {
-  const response = await fetch(`http://localhost:5001/api/v1/hospitals/${hospitalId}/departments`, {
+  const response = await fetch(`${BASE_URL.replace('/api/audit', '')}/api/v1/hospitals/${hospitalId}/departments`, {
     method: "GET",
     headers: getAuthHeaders(),
   });

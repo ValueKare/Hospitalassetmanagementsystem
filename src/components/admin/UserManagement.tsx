@@ -123,7 +123,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('http://localhost:5001/api/roles', {
+      const response = await fetch(`${API_BASE_URL}/api/roles`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +158,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
 
       // Add timestamp to prevent caching
       const timestamp = Date.now();
-      const response = await fetch(`http://localhost:5001/api/dashboard/hospitals?entityCode=${entityCode}&_t=${timestamp}`, {
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/hospitals?entityCode=${entityCode}&_t=${timestamp}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +174,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
       // Handle 304 responses by making a fresh request
       if (response.status === 304) {
         console.log('Got 304, making fresh request...');
-        const freshResponse = await fetch(`http://localhost:5001/api/dashboard/hospitals?entityCode=${entityCode}&_fresh=${Date.now()}`, {
+        const freshResponse = await fetch(`${API_BASE_URL}/api/dashboard/hospitals?entityCode=${entityCode}&_fresh=${Date.now()}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -230,7 +230,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
       }
 
       // Fetch departments for the specific hospital
-      const response = await fetch(`http://localhost:5001/api/entity/api/v1/hospitals/${hospitalId}/departments`, {
+      const response = await fetch(`${API_BASE_URL}/api/entity/api/v1/hospitals/${hospitalId}/departments`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -361,7 +361,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
         contactNumber: employeeForm.contactNumber
       };
 
-      const response = await fetch('http://localhost:5001/api/employee/add', {
+      const response = await fetch(`${API_BASE_URL}/api/employee/add`, {
         method: 'POST',
         headers: {
           'accept': 'application/json',

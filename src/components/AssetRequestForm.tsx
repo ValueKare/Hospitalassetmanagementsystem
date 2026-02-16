@@ -57,7 +57,7 @@ export function AssetRequestForm({
   const fetchDepartmentsWithAssets = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5001/api/requests/departments-with-assets', {
+      const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-assets`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -75,7 +75,7 @@ export function AssetRequestForm({
   const fetchAvailableAssets = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5001/api/requests/departments-with-assets', {
+      const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-assets`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -113,7 +113,7 @@ export function AssetRequestForm({
           justification: formData.justification,
           department: userDepartment
         };
-        endpoint = 'http://localhost:5001/api/requests';
+        endpoint = `${API_BASE_URL}/api/requests`;
       } else {
         // Specific asset request
         requestData = {
@@ -125,7 +125,7 @@ export function AssetRequestForm({
           priority: formData.priority,
           department: userDepartment
         };
-        endpoint = 'http://localhost:5001/api/requests/specific-assets';
+        endpoint = `${API_BASE_URL}/api/requests/specific-assets`;
       }
 
       const response = await fetch(endpoint, {

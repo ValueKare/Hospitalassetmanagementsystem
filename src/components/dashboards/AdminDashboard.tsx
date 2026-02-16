@@ -5,7 +5,7 @@ import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
 
 // API configuration
-const API_BASE_URL = "http://localhost:5001/api/dashboard";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // API functions
 export const getDashboardSummary = async () => {

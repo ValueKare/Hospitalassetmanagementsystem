@@ -148,7 +148,7 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch('http://localhost:5001/api/roles', {
+      const response = await fetch(`${API_BASE_URL}/api/roles`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -218,7 +218,7 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`http://localhost:5001/api/roles/${selectedRole._id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/roles/${selectedRole._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

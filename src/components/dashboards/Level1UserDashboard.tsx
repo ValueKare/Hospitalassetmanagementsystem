@@ -134,12 +134,13 @@ export function Level1UserDashboard({
     const fetchDepartments = async () => {
         try {
             const token = localStorage.getItem('accessToken');
-            console.log('Fetching departments from: http://localhost:5001/api/requests/departments-with-assets');
-            const response = await fetch('http://localhost:5001/api/requests/departments-with-assets', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            console.log(`Fetching departments from: ${API_BASE_URL}/api/requests/departments-with-assets`);
+            // ✅ CORRECT
+const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-assets`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
             console.log('Response status:', response.status);
             console.log('Response ok:', response.ok);
@@ -185,7 +186,7 @@ export function Level1UserDashboard({
         
         try {
             const token = localStorage.getItem('accessToken');
-            const url = `http://localhost:5001/api/requests/departments/${departmentId}/assets`;
+            const url = `${API_BASE_URL}/api/requests/departments/${departmentId}/assets`;
             console.log(`Fetching assets for department ${departmentId} from: ${url}`);
             const response = await fetch(url, {
                 headers: {
@@ -248,7 +249,7 @@ export function Level1UserDashboard({
 
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch('http://localhost:5001/api/requests/specific-assets', {
+            const response = await fetch(`${API_BASE_URL}/api/requests/specific-assets`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -290,15 +291,15 @@ export function Level1UserDashboard({
     };
 
     // Fetch department assets
-    const fetchAssets = async () => {
-        try {
-            const token = localStorage.getItem('accessToken');
-            console.log('Fetching assets from: http://localhost:5001/api/requests/assets/department');
-            const response = await fetch('http://localhost:5001/api/requests/assets/department', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+   const fetchAssets = async () => {
+    try {
+        const token = localStorage.getItem('accessToken');
+        console.log(`Fetching assets from: ${API_BASE_URL}/api/requests/assets/department`);
+        const response = await fetch(`${API_BASE_URL}/api/requests/assets/department`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });  
 
             console.log('Response status:', response.status);
             console.log('Response ok:', response.ok);
@@ -321,15 +322,14 @@ export function Level1UserDashboard({
 
     // Fetch user requests
     const fetchRequests = async () => {
-        try {
-            const token = localStorage.getItem('accessToken');
-            console.log('Fetching open requests from: http://localhost:5001/api/requests/open');
-            const response = await fetch('http://localhost:5001/api/requests/open', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
+    try {
+        const token = localStorage.getItem('accessToken');
+        console.log(`Fetching open requests from: ${API_BASE_URL}/api/requests/open`);
+        const response = await fetch(`${API_BASE_URL}/api/requests/open`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
             console.log('Requests response status:', response.status);
             console.log('Requests response ok:', response.ok);
 
@@ -429,7 +429,7 @@ export function Level1UserDashboard({
     const fulfillRequest = async (requestId: string, assetIds: string[]) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch(`http://localhost:5001/api/requests/${requestId}/fulfill`, {
+            const response = await fetch(`${API_BASE_URL}/api/requests/${requestId}/fulfill`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -457,7 +457,7 @@ export function Level1UserDashboard({
     const rejectRequest = async (requestId: string, assetIds: string[], remarks?: string) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch(`http://localhost:5001/api/requests/${requestId}/reject-assets`, {
+            const response = await fetch(`${API_BASE_URL}/api/requests/${requestId}/reject-assets`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -488,7 +488,7 @@ export function Level1UserDashboard({
     const updateAssetStatus = async (assetId: string, utilizationStatus: string) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch(`http://localhost:5001/api/requests/assets/${assetId}/utilization`, {
+            const response = await fetch(`${API_BASE_URL}/api/requests/assets/${assetId}/utilization`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

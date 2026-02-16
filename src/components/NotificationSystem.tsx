@@ -4,6 +4,8 @@ import { io, Socket } from 'socket.io-client';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
+const API_BASE_URL = "http://localhost:5001";
+
 interface Notification {
   _id: string;
   id: string;
@@ -108,10 +110,10 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
       return;
     }
 
-    const newSocket = io('http://localhost:5001', {
+    const newSocket = io(`${API_BASE_URL}/`, {
       auth: { token },
       transports: ['websocket', 'polling']
-    });
+    })
 
     newSocket.on('connect', () => {
       console.log('🔌 Connected to notification server');
@@ -167,7 +169,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
   // Fetch initial notifications
   const fetchNotifications = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/notifications', {
+      const response = await fetch(`${API_BASE_URL}/api/notifications`, {
         headers: getAuthHeaders()
       });
 
@@ -182,7 +184,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/notifications/unread-count', {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/unread-count`, {
         headers: getAuthHeaders()
       });
 
@@ -197,7 +199,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: getAuthHeaders()
       });
@@ -217,7 +219,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/notifications/read-all', {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
         method: 'PUT',
         headers: getAuthHeaders()
       });

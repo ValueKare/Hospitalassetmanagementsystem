@@ -19,6 +19,8 @@ export default function InitiateAudit({ onNavigate }: InitiateAuditProps) {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
+    console.log('InitiateAudit: Submit called with:', { auditCode, hospitalId, auditType });
+    
     if (!auditCode || !hospitalId || !auditType) {
       toast.error("All fields are required");
       return;
@@ -26,20 +28,23 @@ export default function InitiateAudit({ onNavigate }: InitiateAuditProps) {
 
     try {
       setLoading(true);
+      console.log('InitiateAudit: Calling API...');
       const res = await initiateAudit({
         auditCode,
         hospitalId,
         auditType
       });
 
+      console.log('InitiateAudit: API response:', res);
       toast.success("Audit initiated successfully");
       // Navigate to audit dashboard with the new audit ID
       const newAuditId = res.data?.auditId || auditCode;
+      console.log('InitiateAudit: Navigating to audit-dashboard with ID:', newAuditId);
       onNavigate("audit-dashboard", newAuditId);
     } catch (err: any) {
+      console.error('InitiateAudit: Error occurred:', err);
       const errorMsg = err.response?.data?.message || "Failed to initiate audit";
       toast.error(errorMsg);
-      console.error("Error initiating audit:", err);
     } finally {
       setLoading(false);
     }

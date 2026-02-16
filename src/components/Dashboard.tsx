@@ -5,13 +5,13 @@ import { Badge } from "./ui/badge";
 import { Alert, AlertDescription } from "./ui/alert";
 
 // API configuration
-const API_BASE_URL = "http://localhost:5001/api/dashboard";
+const API_BASE_URL = "http://localhost:5001";
 
 // API functions
 export const getDashboardSummary = async () => {
   try {
-    console.log('Fetching summary from:', `${API_BASE_URL}/summary`);
-    const response = await fetch(`${API_BASE_URL}/summary`);
+    console.log('Fetching summary from:', `${API_BASE_URL}/api/dashboard/summary`);
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/summary`);
     console.log('Summary response status:', response.status);
     
     if (!response.ok) {
@@ -31,8 +31,8 @@ export const getDashboardSummary = async () => {
 
 export const getAssetsByDepartment = async () => {
   try {
-    console.log('Fetching assets by department from:', `${API_BASE_URL}/assets-by-department`);
-    const response = await fetch(`${API_BASE_URL}/assets-by-department`);
+    console.log('Fetching assets by department from:', `${API_BASE_URL}/api/dashboard/assets-by-department`);
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/assets-by-department`);
     console.log('Department response status:', response.status);
     
     if (!response.ok) {
@@ -52,8 +52,8 @@ export const getAssetsByDepartment = async () => {
 
 export const getUtilizationData = async () => {
   try {
-    console.log('Fetching utilization from:', `${API_BASE_URL}/utilization`);
-    const response = await fetch(`${API_BASE_URL}/utilization`);
+    console.log('Fetching utilization from:', `${API_BASE_URL}/api/dashboard/utilization`);
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/utilization`);
     console.log('Utilization response status:', response.status);
     
     if (!response.ok) {
@@ -73,8 +73,8 @@ export const getUtilizationData = async () => {
 
 export const getCostTrends = async () => {
   try {
-    console.log('Fetching cost trends from:', `${API_BASE_URL}/cost-trends`);
-    const response = await fetch(`${API_BASE_URL}/cost-trends`);
+    console.log('Fetching cost trends from:', `${API_BASE_URL}/api/dashboard/cost-trends`);
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/cost-trends`);
     console.log('Cost trends response status:', response.status);
     
     if (!response.ok) {
@@ -94,8 +94,8 @@ export const getCostTrends = async () => {
 
 export const getDashboardAlerts = async () => {
   try {
-    console.log('Fetching alerts from:', `${API_BASE_URL}/alerts`);
-    const response = await fetch(`${API_BASE_URL}/alerts`);
+    console.log('Fetching alerts from:', `${API_BASE_URL}/api/dashboard/alerts`);
+    const response = await fetch(`${API_BASE_URL}/api/dashboard/alerts`);
     console.log('Alerts response status:', response.status);
     
     if (!response.ok) {
