@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
-const API_BASE_URL = "http://localhost:5001";
+// const import.meta.env.VITE_API_URL = "http://localhost:5001";
 
 interface Notification {
   _id: string;
@@ -110,7 +110,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
       return;
     }
 
-    const newSocket = io(`${API_BASE_URL}/`, {
+    const newSocket = io(`${import.meta.env.VITE_API_URL}/`, {
       auth: { token },
       transports: ['websocket', 'polling']
     })
@@ -169,7 +169,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
   // Fetch initial notifications
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications`, {
         headers: getAuthHeaders()
       });
 
@@ -184,7 +184,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/unread-count`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/unread-count`, {
         headers: getAuthHeaders()
       });
 
@@ -199,7 +199,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
 
   const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/${notificationId}/read`, {
         method: 'PUT',
         headers: getAuthHeaders()
       });
@@ -219,7 +219,7 @@ const NotificationSystem: React.FC<NotificationSystemProps> = ({ userName, userD
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/read-all`, {
         method: 'PUT',
         headers: getAuthHeaders()
       });

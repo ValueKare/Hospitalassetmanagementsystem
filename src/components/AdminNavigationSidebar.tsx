@@ -67,7 +67,7 @@ const auditAdminMenu = [
 // API function to fetch entities
 const fetchEntities = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/entity`);
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/entity`);
     if (!response.ok) {
       throw new Error('Failed to fetch entities');
     }

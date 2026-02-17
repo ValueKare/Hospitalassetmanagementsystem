@@ -116,7 +116,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
           return;
         }
         
-        const res = await fetch(`${API_BASE_URL}/api/dashboard/hospitals?entityCode=${selectedEntity.code}`, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/hospitals?entityCode=${selectedEntity.code}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -168,8 +168,8 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         status: filterStatus === 'all' ? '' : filterStatus
       });
 
-      console.log('Fetching from:', `${API_BASE_URL}/api/sql/assets/paginated?${params}`);
-      const res = await fetch(`${API_BASE_URL}/api/sql/assets/paginated?${params}`, {
+      console.log('Fetching from:', `${import.meta.env.VITE_API_URL}/api/sql/assets/paginated?${params}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/sql/assets/paginated?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -203,7 +203,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       } else {
         console.log('Using fallback endpoint');
         // Fallback to non-paginated endpoint if paginated endpoint doesn't exist
-        const fallbackRes = await fetch(`${API_BASE_URL}/api/sql/assets/all`, {
+        const fallbackRes = await fetch(`${import.meta.env.VITE_API_URL}/api/sql/assets/all`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -288,7 +288,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         return;
       }
       
-      const res = await fetch(`${API_BASE_URL}/api/barcode/${assetId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/barcode/${assetId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -366,7 +366,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       
       const loadingToast = toast.loading(`Uploading ${file.name} to ${selectedHospital.name}...`);
       
-      const res = await fetch(`${API_BASE_URL}/api/upload/universal`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload/universal`, {
         method: "POST",
         headers: {
           'Authorization': `Bearer ${token}`

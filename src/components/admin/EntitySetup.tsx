@@ -57,7 +57,7 @@ interface CreateEntityResponse {
 // Hospital creation interface
 interface HospitalFormData {
   name: string;
-  entityCode: string;
+  entityCode: string; // Backend expects entity code, not MongoDB ID
   location: string;
   contactEmail: string;
   phone: string;
@@ -217,7 +217,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/entity`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/entity`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -286,7 +286,7 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/entity`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/entity`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -348,13 +348,18 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
     setIsLoadingHospitals(true);
     setHospitalsError(null);
 
+    console.log('=== Fetching Hospitals ===');
+
     try {
       const token = getAuthToken();
       if (!token) {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/hospital`, {
+      const url = `${import.meta.env.VITE_API_URL}/api/hospital`;
+      console.log('GET URL:', url);
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -363,11 +368,16 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
       });
 
 
+      console.log('Fetch hospitals response status:', response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Fetch hospitals error body:', errorText);
         throw new Error(`Failed to fetch hospitals: ${response.status} ${response.statusText}`);
       }
 
       const result: GetHospitalsResponse = await response.json();
+      console.log('Fetch hospitals response:', result);
       console.log('GET request response:', result);
 
       if (!result.success) {
@@ -408,26 +418,48 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
     e.preventDefault();
     setIsCreatingHospital(true);
 
+    console.log('=== Creating Hospital ===');
+    console.log('Form data:', hospitalForm);
+
     try {
       const token = getAuthToken();
       if (!token) {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/hospital`, {
+      const url = `${import.meta.env.VITE_API_URL}/api/hospital`;
+      console.log('POST URL:', url);
+      
+      // Build request body - backend expects entityCode, not entityId
+      const requestBody = {
+        name: hospitalForm.name,
+        entityCode: hospitalForm.entityCode,
+        location: hospitalForm.location,
+        contactEmail: hospitalForm.contactEmail,
+        phone: hospitalForm.phone
+      };
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(hospitalForm)
+        body: JSON.stringify(requestBody)
       });
 
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response body:', errorText);
         throw new Error(`Failed to create hospital: ${response.status} ${response.statusText}`);
       }
 
       const result: CreateHospitalResponse = await response.json();
+      console.log('Create hospital response:', result);
 
       if (!result.success) {
         throw new Error(result.message || 'Failed to create hospital');
@@ -486,13 +518,21 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
 
     setIsUpdatingHospital(true);
 
+    console.log('=== Updating Hospital ===');
+    console.log('Editing hospital ID:', editingHospital._id);
+    console.log('Update form data:', editForm);
+
     try {
       const token = getAuthToken();
       if (!token) {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/entity/api/hospital/${editingHospital._id}`, {
+      const url = `${import.meta.env.VITE_API_URL}/api/hospital/${editingHospital._id}`;
+      console.log('PUT URL:', url);
+      console.log('PUT request body:', JSON.stringify(editForm, null, 2));
+
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -501,15 +541,16 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
         body: JSON.stringify(editForm)
       });
 
-      console.log('PUT request URL:', `${API_BASE_URL}/api/entity/api/hospital/${editingHospital._id}`);
-      console.log('PUT request body:', editForm);
-      console.log('editingHospital._id type:', typeof editingHospital._id, editingHospital._id);
+      console.log('PUT response status:', response.status);
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('PUT error response body:', errorText);
         throw new Error(`Failed to update hospital: ${response.status} ${response.statusText}`);
       }
 
       const result: UpdateHospitalResponse = await response.json();
+      console.log('Update hospital response:', result);
 
       if (!result.success) {
         throw new Error(result.message || 'Failed to update hospital');
@@ -847,14 +888,21 @@ export function EntitySetup({ onNavigate }: EntitySetupProps) {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="entity-code">Entity Code</Label>
-                        <Input
-                          id="entity-code"
-                          placeholder="Enter entity code"
+                        <Label htmlFor="entity-select">Entity</Label>
+                        <select
+                          id="entity-select"
                           value={hospitalForm.entityCode}
                           onChange={(e) => handleHospitalFormChange('entityCode', e.target.value)}
                           required
-                        />
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select an entity</option>
+                          {entities.map((entity) => (
+                            <option key={entity._id} value={entity.code}>
+                              {entity.name} ({entity.code})
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="location">Location</Label>

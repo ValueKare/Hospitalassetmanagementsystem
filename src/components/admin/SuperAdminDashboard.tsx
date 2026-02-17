@@ -9,27 +9,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 
 // API configuration
-const API_BASE_URL = "http://localhost:5001";
+// const import.meta.env.VITE_API_URL = "http://localhost:5001";
 
 // API functions
+const getAuthToken = () => localStorage.getItem('accessToken');
+
 export const getDashboardSummary = async (hospitalId?: string) => {
   try {
+    const token = getAuthToken();
     const url = hospitalId 
-      ? `${API_BASE_URL}/summary?hospitalId=${hospitalId}`
-      : `${API_BASE_URL}/summary`;
+      ? `${import.meta.env.VITE_API_URL}/api/dashboard/summary?hospitalId=${hospitalId}`
+      : `${import.meta.env.VITE_API_URL}/api/dashboard/summary`;
 
-    console.log('Fetching summary from:', url);
-    const response = await fetch(url);
-    console.log('Summary response status:', response.status);
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Summary API error response:', errorText);
       throw new Error(`Failed to fetch dashboard summary: ${response.status} ${errorText}`);
     }
 
     const data: DashboardSummaryResponse = await response.json();
-    console.log('Summary data received:', JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
     console.error('Summary API error:', error);
@@ -39,18 +42,19 @@ export const getDashboardSummary = async (hospitalId?: string) => {
 
 export const getAssetsByDepartment = async () => {
   try {
-    console.log('Fetching assets by department from:', `${API_BASE_URL}/assets-by-department`);
-    const response = await fetch(`${API_BASE_URL}/assets-by-department`);
-    console.log('Department response status:', response.status);
+    const token = getAuthToken();
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/assets-by-department`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Department API error response:', errorText);
       throw new Error(`Failed to fetch assets by department: ${response.status} ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Department data received:', JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
     console.error('Department API error:', error);
@@ -60,18 +64,19 @@ export const getAssetsByDepartment = async () => {
 
 export const getUtilizationData = async () => {
   try {
-    console.log('Fetching utilization from:', `${API_BASE_URL}/utilization`);
-    const response = await fetch(`${API_BASE_URL}/utilization`);
-    console.log('Utilization response status:', response.status);
+    const token = getAuthToken();
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/utilization`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Utilization API error response:', errorText);
       throw new Error(`Failed to fetch utilization data: ${response.status} ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Utilization data received:', JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
     console.error('Utilization API error:', error);
@@ -81,18 +86,19 @@ export const getUtilizationData = async () => {
 
 export const getCostTrends = async () => {
   try {
-    console.log('Fetching cost trends from:', `${API_BASE_URL}/cost-trends`);
-    const response = await fetch(`${API_BASE_URL}/cost-trends`);
-    console.log('Cost trends response status:', response.status);
+    const token = getAuthToken();
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/cost-trends`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Cost trends API error response:', errorText);
       throw new Error(`Failed to fetch cost trends: ${response.status} ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Cost trends data received:', JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
     console.error('Cost trends API error:', error);
@@ -102,18 +108,19 @@ export const getCostTrends = async () => {
 
 export const getDashboardAlerts = async () => {
   try {
-    console.log('Fetching alerts from:', `${API_BASE_URL}/alerts`);
-    const response = await fetch(`${API_BASE_URL}/alerts`);
-    console.log('Alerts response status:', response.status);
+    const token = getAuthToken();
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/alerts`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Alerts API error response:', errorText);
       throw new Error(`Failed to fetch dashboard alerts: ${response.status} ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Alerts data received:', JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
     console.error('Alerts API error:', error);
@@ -123,18 +130,19 @@ export const getDashboardAlerts = async () => {
 
 export const getHospitalCount = async () => {
   try {
-    console.log('Fetching hospital count from:', `${API_BASE_URL}/hospitals`);
-    const response = await fetch(`${API_BASE_URL}/hospitals`);
-    console.log('Hospital count response status:', response.status);
+    const token = getAuthToken();
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/hospital`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Hospital count API error response:', errorText);
       throw new Error(`Failed to fetch hospital count: ${response.status} ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Hospital count data received:', JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
     console.error('Hospital count API error:', error);
@@ -144,22 +152,23 @@ export const getHospitalCount = async () => {
 
 export const getHospitalsByEntity = async (entityCode?: string) => {
   try {
+    const token = getAuthToken();
     const url = entityCode 
-      ? `${API_BASE_URL}/hospitals?entityCode=${entityCode}`
-      : `${API_BASE_URL}/hospitals`;
+      ? `${import.meta.env.VITE_API_URL}/api/hospital?entityCode=${entityCode}`
+      : `${import.meta.env.VITE_API_URL}/api/hospital`;
     
-    console.log('Fetching hospitals by entity from:', url);
-    const response = await fetch(url);
-    console.log('Entity hospitals response status:', response.status);
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Entity hospitals API error response:', errorText);
       throw new Error(`Failed to fetch entity hospitals: ${response.status} ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Entity hospitals data received:', JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
     console.error('Entity hospitals API error:', error);
@@ -355,9 +364,9 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
         }
 
         // Set hospital count from entity hospitals or global count
-        if (hospitalsResponse?.count !== undefined) {
-          setHospitalCount(hospitalsResponse.count);
-        }
+        const hospitalsArray = hospitalsResponse?.hospitals || hospitalsResponse?.data || (Array.isArray(hospitalsResponse) ? hospitalsResponse : []);
+        const count = hospitalsResponse?.count ?? hospitalsArray.length ?? 0;
+        setHospitalCount(count);
 
         // Store entity hospitals for dropdown
         if (hospitalsResponse?.hospitals) {
@@ -381,15 +390,6 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
           utilizationRate: summaryResponse.utilizationRate
         } : null;
 
-        // Log detailed results
-        console.log('=== RAW API RESULTS ===');
-        console.log('Summary:', summary);
-        console.log('Summary Response:', summaryResponse);
-        console.log('Department Data:', departmentData);
-        console.log('Utilization Data:', utilizationData);
-        console.log('Cost Data:', costData);
-        console.log('Alerts:', alerts);
-
         // Log any failures
         results.forEach((result, index) => {
           if (result.status === 'rejected') {
@@ -398,52 +398,37 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
         });
 
         // Transform department data for pie chart (use as asset categories for super admin)
-        console.log('=== TRANSFORMING DEPARTMENT DATA ===');
-        const transformedAssetCategoryData: TransformedDepartmentData[] = Array.isArray(departmentData) ? departmentData.map((item: DepartmentData, index: number) => {
-          console.log(`Transforming item ${index}:`, item);
-          return {
-            name: item.department || item._id || 'Unknown',
-            value: item.assetCount ?? item.value ?? 0,
-            color: assetCategoryColors[index % assetCategoryColors.length]
-          };
-        }) : [];
-        console.log('Transformed department data:', transformedAssetCategoryData);
+        const transformedAssetCategoryData: TransformedDepartmentData[] = Array.isArray(departmentData) ? departmentData.map((item: DepartmentData, index: number) => ({
+          name: item.department || item._id || 'Unknown',
+          value: item.assetCount ?? item.value ?? 0,
+          color: assetCategoryColors[index % assetCategoryColors.length]
+        })) : [];
 
         // Transform cost data with month names
-        console.log('=== TRANSFORMING COST DATA ===');
-        const transformedCostData: TransformedCostData[] = Array.isArray(costData) ? costData.map((item: CostData) => {
-          console.log('Transforming cost item:', item);
-          return {
-            month: monthNames[item.month] || `Month ${item.month}`,
-            cost: item.cost,
-            maintenance: item.maintenance
-          };
-        }) : [];
-        console.log('Transformed cost data:', transformedCostData);
+        const transformedCostData: TransformedCostData[] = Array.isArray(costData) ? costData.map((item: CostData) => ({
+          month: monthNames[item.month] || `Month ${item.month}`,
+          cost: item.cost,
+          maintenance: item.maintenance
+        })) : [];
 
         // Transform alerts
-        console.log('=== TRANSFORMING ALERTS ===');
-        const transformedAlerts: TransformedAlert[] = Array.isArray(alerts) ? alerts.map((alert: AlertData, index: number) => {
-          console.log(`Transforming alert ${index}:`, alert);
-          return {
-            id: index,
-            type: alert.alertType.toLowerCase().replace(' ', '_'),
-            message: `${alert.assetName} (${alert.assetCode}) - ${alert.alertType}`,
-            priority: alert.daysToExpiry <= 7 ? 'high' : alert.daysToExpiry <= 15 ? 'medium' : 'low',
-            details: {
-              hospitalName: alert.hospitalName,
-              hospitalLocation: alert.hospitalLocation,
-              departmentName: alert.departmentName,
-              buildingName: alert.buildingName,
-              floorName: alert.floorName,
-              daysToExpiry: alert.daysToExpiry,
-              purchaseCost: alert.purchaseCost,
-              maintenanceCost: alert.maintenanceCost,
-              utilizationStatus: alert.utilizationStatus
-            }
-          };
-        }) : [];
-        console.log('Transformed alerts:', transformedAlerts);
+        const transformedAlerts: TransformedAlert[] = Array.isArray(alerts) ? alerts.map((alert: AlertData, index: number) => ({
+          id: index,
+          type: alert.alertType.toLowerCase().replace(' ', '_'),
+          message: `${alert.assetName} (${alert.assetCode}) - ${alert.alertType}`,
+          priority: alert.daysToExpiry <= 7 ? 'high' : alert.daysToExpiry <= 15 ? 'medium' : 'low',
+          details: {
+            hospitalName: alert.hospitalName,
+            hospitalLocation: alert.hospitalLocation,
+            departmentName: alert.departmentName,
+            buildingName: alert.buildingName,
+            floorName: alert.floorName,
+            daysToExpiry: alert.daysToExpiry,
+            purchaseCost: alert.purchaseCost,
+            maintenanceCost: alert.maintenanceCost,
+            utilizationStatus: alert.utilizationStatus
+          }
+        })) : [];
 
         // Set final dashboard data
         const finalData = {
@@ -454,14 +439,9 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
           alerts: transformedAlerts
         };
         
-        console.log('=== FINAL DASHBOARD DATA ===');
-        console.log('Final data being set:', finalData);
-        
         setDashboardData(finalData);
-        console.log('=== DASHBOARD DATA SET SUCCESSFULLY ===');
 
       } catch (error) {
-        console.error('=== FETCH ERROR ===');
         console.error('Failed to fetch super admin dashboard data:', error);
         // Set empty data on error - no fallback mock data
         setDashboardData({
@@ -486,12 +466,9 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
   // Update dashboard when entity changes
   useEffect(() => {
     if (selectedEntity) {
-      console.log('Entity changed:', selectedEntity);
       // Reset selected hospital when entity changes
       setSelectedHospital(null);
       setSelectedHospitalId(null);
-      // You can use selectedEntity._id as hospitalId for API calls
-      // or fetch entity-specific data here
       fetchDashboardData();
     }
   }, [selectedEntity]);
@@ -499,7 +476,6 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
   // Update dashboard when hospital changes
   useEffect(() => {
     if (selectedHospital) {
-      console.log('Hospital changed:', selectedHospital);
       fetchDashboardData();
     }
   }, [selectedHospital]);
@@ -536,42 +512,6 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
             )}
           </div>
           <div className="flex items-center gap-4">
-            {selectedEntity && entityHospitals.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Label htmlFor="hospital-select">Hospital:</Label>
-                <Select
-                  value={selectedHospitalId || ''}
-                  onValueChange={handleHospitalChange}
-                  disabled={loading || entityHospitals.length === 0}
-                >
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Select a hospital">
-                      {selectedHospital ? (
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-[#0F67FF]" />
-                          <span className="truncate">{selectedHospital.name}</span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-500">Select hospital</span>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {entityHospitals.map((hospital) => (
-                      <SelectItem key={hospital.hospitalId || hospital._id} value={hospital.hospitalId || hospital._id}>
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-gray-500" />
-                          <div className="flex-1">
-                            <div className="font-medium">{hospital.name}</div>
-                            <div className="text-sm text-gray-500">{hospital.location}</div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <Button 
               onClick={fetchDashboardData}
               className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
@@ -816,8 +756,6 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                {console.log('=== RENDERING PIE CHART ===')}
-                {console.log('Chart data:', dashboardData.departmentData)}
                 <Pie
                   data={dashboardData.departmentData}
                   cx="50%"
@@ -828,12 +766,9 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {dashboardData.departmentData.map((entry: TransformedDepartmentData, index: number) => {
-                    console.log(`Rendering pie slice ${index}:`, entry);
-                    return (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    );
-                  })}
+                  {dashboardData.departmentData.map((entry: TransformedDepartmentData, index: number) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
@@ -850,8 +785,6 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={dashboardData.costData}>
-                {console.log('=== RENDERING BAR CHART ===')}
-                {console.log('Bar chart data:', dashboardData.costData)}
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />

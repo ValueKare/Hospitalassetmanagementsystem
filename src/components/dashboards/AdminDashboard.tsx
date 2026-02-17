@@ -5,37 +5,122 @@ import { Badge } from "../ui/badge";
 import { Alert, AlertDescription } from "../ui/alert";
 
 // API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 // API functions
 export const getDashboardSummary = async () => {
-  const response = await fetch(`${API_BASE_URL}/summary`);
-  if (!response.ok) throw new Error('Failed to fetch dashboard summary');
-  return response.json();
+  const url = `${BASE_URL}/api/dashboard/summary`;
+  console.log('=== getDashboardSummary ===');
+  console.log('URL:', url);
+  
+  try {
+    const response = await fetch(url);
+    console.log('Response status:', response.status);
+    
+    const data = await response.json();
+    console.log('Response data:', data);
+    
+    if (!response.ok) {
+      console.error('Error fetching dashboard summary:', data);
+      throw new Error('Failed to fetch dashboard summary');
+    }
+    return data;
+  } catch (error) {
+    console.error('Exception in getDashboardSummary:', error);
+    throw error;
+  }
 };
 
 export const getAssetsByDepartment = async () => {
-  const response = await fetch(`${API_BASE_URL}/assets-by-department`);
-  if (!response.ok) throw new Error('Failed to fetch assets by department');
-  return response.json();
+  const url = `${BASE_URL}/api/dashboard/assets-by-department`;
+  console.log('=== getAssetsByDepartment ===');
+  console.log('URL:', url);
+  
+  try {
+    const response = await fetch(url);
+    console.log('Response status:', response.status);
+    
+    const data = await response.json();
+    console.log('Response data:', data);
+    
+    if (!response.ok) {
+      console.error('Error fetching assets by department:', data);
+      throw new Error('Failed to fetch assets by department');
+    }
+    return data;
+  } catch (error) {
+    console.error('Exception in getAssetsByDepartment:', error);
+    throw error;
+  }
 };
 
 export const getUtilizationData = async () => {
-  const response = await fetch(`${API_BASE_URL}/utilization`);
-  if (!response.ok) throw new Error('Failed to fetch utilization data');
-  return response.json();
+  const url = `${BASE_URL}/api/dashboard/utilization`;
+  console.log('=== getUtilizationData ===');
+  console.log('URL:', url);
+  
+  try {
+    const response = await fetch(url);
+    console.log('Response status:', response.status);
+    
+    const data = await response.json();
+    console.log('Response data:', data);
+    
+    if (!response.ok) {
+      console.error('Error fetching utilization data:', data);
+      throw new Error('Failed to fetch utilization data');
+    }
+    return data;
+  } catch (error) {
+    console.error('Exception in getUtilizationData:', error);
+    throw error;
+  }
 };
 
 export const getCostTrends = async () => {
-  const response = await fetch(`${API_BASE_URL}/cost-trends`);
-  if (!response.ok) throw new Error('Failed to fetch cost trends');
-  return response.json();
+  const url = `${BASE_URL}/api/dashboard/cost-trends`;
+  console.log('=== getCostTrends ===');
+  console.log('URL:', url);
+  
+  try {
+    const response = await fetch(url);
+    console.log('Response status:', response.status);
+    
+    const data = await response.json();
+    console.log('Response data:', data);
+    
+    if (!response.ok) {
+      console.error('Error fetching cost trends:', data);
+      throw new Error('Failed to fetch cost trends');
+    }
+    return data;
+  } catch (error) {
+    console.error('Exception in getCostTrends:', error);
+    throw error;
+  }
 };
 
 export const getDashboardAlerts = async () => {
-  const response = await fetch(`${API_BASE_URL}/alerts`);
-  if (!response.ok) throw new Error('Failed to fetch dashboard alerts');
-  return response.json();
+  const url = `${BASE_URL}/api/dashboard/alerts`;
+  console.log('=== getDashboardAlerts ===');
+  console.log('URL:', url);
+  
+  try {
+    const response = await fetch(url);
+    console.log('Response status:', response.status);
+    
+    const data = await response.json();
+    console.log('Response data:', data);
+    
+    if (!response.ok) {
+      console.error('Error fetching dashboard alerts:', data);
+      throw new Error('Failed to fetch dashboard alerts');
+    }
+    return data;
+  } catch (error) {
+    console.error('Exception in getDashboardAlerts:', error);
+    throw error;
+  }
 };
 import {
   BarChart,

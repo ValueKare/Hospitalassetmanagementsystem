@@ -9,7 +9,7 @@ This implementation ensures that only one user can be logged in with the same cr
 ```typescript
 const validateSession = async (accessToken: string) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/validate-session`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/validate-session`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

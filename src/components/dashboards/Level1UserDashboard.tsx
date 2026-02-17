@@ -134,9 +134,9 @@ export function Level1UserDashboard({
     const fetchDepartments = async () => {
         try {
             const token = localStorage.getItem('accessToken');
-            console.log(`Fetching departments from: ${API_BASE_URL}/api/requests/departments-with-assets`);
+            console.log(`Fetching departments from: ${import.meta.env.VITE_API_URL}/api/requests/departments-with-assets`);
             // ✅ CORRECT
-const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-assets`, {
+const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/departments-with-assets`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -186,7 +186,7 @@ const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-asse
         
         try {
             const token = localStorage.getItem('accessToken');
-            const url = `${API_BASE_URL}/api/requests/departments/${departmentId}/assets`;
+            const url = `${import.meta.env.VITE_API_URL}/api/requests/departments/${departmentId}/assets`;
             console.log(`Fetching assets for department ${departmentId} from: ${url}`);
             const response = await fetch(url, {
                 headers: {
@@ -249,7 +249,7 @@ const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-asse
 
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch(`${API_BASE_URL}/api/requests/specific-assets`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/specific-assets`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -294,8 +294,8 @@ const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-asse
    const fetchAssets = async () => {
     try {
         const token = localStorage.getItem('accessToken');
-        console.log(`Fetching assets from: ${API_BASE_URL}/api/requests/assets/department`);
-        const response = await fetch(`${API_BASE_URL}/api/requests/assets/department`, {
+        console.log(`Fetching assets from: ${import.meta.env.VITE_API_URL}/api/requests/assets/department`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/assets/department`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -324,8 +324,8 @@ const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-asse
     const fetchRequests = async () => {
     try {
         const token = localStorage.getItem('accessToken');
-        console.log(`Fetching open requests from: ${API_BASE_URL}/api/requests/open`);
-        const response = await fetch(`${API_BASE_URL}/api/requests/open`, {
+        console.log(`Fetching open requests from: ${import.meta.env.VITE_API_URL}/api/requests/open`);
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/open`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -429,7 +429,7 @@ const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-asse
     const fulfillRequest = async (requestId: string, assetIds: string[]) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch(`${API_BASE_URL}/api/requests/${requestId}/fulfill`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/${requestId}/fulfill`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -457,7 +457,7 @@ const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-asse
     const rejectRequest = async (requestId: string, assetIds: string[], remarks?: string) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch(`${API_BASE_URL}/api/requests/${requestId}/reject-assets`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/${requestId}/reject-assets`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -488,7 +488,7 @@ const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-asse
     const updateAssetStatus = async (assetId: string, utilizationStatus: string) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await fetch(`${API_BASE_URL}/api/requests/assets/${assetId}/utilization`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/assets/${assetId}/utilization`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

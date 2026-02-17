@@ -56,7 +56,7 @@ import { AssetRequestForm } from "./components/AssetRequestForm";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 
-const API_BASE_URL = "http://localhost:5001";
+// const import.meta.env.VITE_API_URL = "http://localhost:5001";
 
 type Screen = 
   | "login" 
@@ -122,7 +122,7 @@ export default function App() {
 // Session validation function
 const validateSession = async (accessToken: string) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/validate-session`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/validate-session`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -275,7 +275,7 @@ const validateSession = async (accessToken: string) => {
     const fetchEntitiesEarly = async () => {
       if (userRole === "superadmin") {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/entity`);
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/entity`);
           if (response.ok) {
             const data = await response.json();
             const entityList = data.entities || [];

@@ -64,19 +64,34 @@ interface Hospital {
   organizationId: string;
 }
 
-const mockUsers = [
-  { id: 1, name: "Sarah Johnson", email: "sarah@cityhospital.com", role: "department-head", hospital: "City General Hospital", status: "active", parent: "Super Admin" },
-  { id: 2, name: "Dr. Michael Chen", email: "michael@cityhospital.com", role: "biomedical", hospital: "City General Hospital", status: "active", parent: "Sarah Johnson" },
-  { id: 3, name: "Emily Davis", email: "emily@metromed.com", role: "store-manager", hospital: "Metro Medical Center", status: "active", parent: "Admin User" },
-  { id: 4, name: "Robert Wilson", email: "robert@regional.com", role: "viewer", hospital: "Regional Health Center", status: "inactive", parent: "Department Head" },
-  { id: 5, name: "Lisa Anderson", email: "lisa@community.com", role: "department-head", hospital: "Community Hospital", status: "active", parent: "Super Admin" },
-];
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  roleId?: string;
+  hospital: string;
+  hospitalName?: string;
+  department?: string;
+  ward?: string;
+  status: string;
+  parentUser?: { id: string; name: string; role: string };
+  parentUserId?: string;
+  contactNumber?: string;
+  joinedDate?: string;
+  permissions?: Record<string, boolean>;
+  organizationId?: string;
+}
 
 export function UserManagement({ onNavigate, selectedEntity }: UserManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
   
   // Form state for employee addition
   const [employeeForm, setEmployeeForm] = useState({
@@ -102,11 +117,11 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const filteredUsers = mockUsers.filter(user => {
+  const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === "all" || user.role === filterRole;
-    const matchesStatus = filterStatus === "all" || user.status === filterStatus;
+    const matchesStatus = filterStatus === "all" || user.status?.toLowerCase() === filterStatus;
     return matchesSearch && matchesRole && matchesStatus;
   });
 
@@ -123,7 +138,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/roles`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/roles`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +173,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
 
       // Add timestamp to prevent caching
       const timestamp = Date.now();
-      const response = await fetch(`${API_BASE_URL}/api/dashboard/hospitals?entityCode=${entityCode}&_t=${timestamp}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/hospitals?entityCode=${entityCode}&_t=${timestamp}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +189,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
       // Handle 304 responses by making a fresh request
       if (response.status === 304) {
         console.log('Got 304, making fresh request...');
-        const freshResponse = await fetch(`${API_BASE_URL}/api/dashboard/hospitals?entityCode=${entityCode}&_fresh=${Date.now()}`, {
+        const freshResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard/hospitals?entityCode=${entityCode}&_fresh=${Date.now()}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -230,7 +245,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
       }
 
       // Fetch departments for the specific hospital
-      const response = await fetch(`${API_BASE_URL}/api/entity/api/v1/hospitals/${hospitalId}/departments`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/entity/api/v1/hospitals/${hospitalId}/departments`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -257,6 +272,43 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
     } catch (err) {
       console.error('Error fetching departments:', err);
       setError(err instanceof Error ? err.message : 'Failed to load departments');
+    }
+  };
+
+  // Fetch users from API
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const params = new URLSearchParams();
+      if (selectedEntity?.code) params.append('organizationId', selectedEntity.code);
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/list?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        const userList = Array.isArray(data.data) ? data.data : data.data.users || [];
+        setUsers(userList);
+      }
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      toast.error('Failed to load users');
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -301,11 +353,12 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
     
     if (selectedHospital) {
       setEmployeeForm(prev => ({ ...prev, hospital: hospitalId }));
-      console.log('Updated form hospital field to:', hospitalId);
       
       // Fetch departments for the selected hospital
-      if (employeeForm.organizationId) {
-        fetchDepartments(employeeForm.organizationId, hospitalId);
+      const orgId = selectedEntity?.code || employeeForm.organizationId;
+      const hId = selectedHospital.hospitalId || hospitalId;
+      if (orgId) {
+        fetchDepartments(orgId, hId);
       }
     } else {
       console.error('Hospital not found with ID:', hospitalId);
@@ -361,7 +414,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
         contactNumber: employeeForm.contactNumber
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/employee/add`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/add`, {
         method: 'POST',
         headers: {
           'accept': 'application/json',
@@ -384,23 +437,8 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
 
       toast.success("Employee added successfully!");
       setIsAddUserOpen(false);
-      
-      // Reset form
-      setEmployeeForm({
-        name: "",
-        email: "",
-        organizationId: "",
-        hospital: "",
-        department: "",
-        ward: "",
-        role: "",
-        roleId: "",
-        panel: "",
-        parentUserId: "",
-        permissions: {},
-        joinedDate: "",
-        contactNumber: ""
-      });
+      resetForm();
+      fetchUsers();
     } catch (err) {
       console.error('Error creating employee:', err);
       setError(err instanceof Error ? err.message : 'Failed to create employee');
@@ -412,20 +450,140 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
 
   // Load initial data when component mounts or entity changes
   useEffect(() => {
-    console.log('UserManagement useEffect triggered, selectedEntity:', selectedEntity);
     fetchRoles();
+    fetchUsers();
     
     if (selectedEntity) {
-      console.log('Fetching hospitals for entity:', selectedEntity.code);
       setEmployeeForm(prev => ({ ...prev, organizationId: selectedEntity.code }));
       fetchHospitals(selectedEntity.code);
-    } else {
-      console.log('No selected entity available');
     }
   }, [selectedEntity]);
 
-  const handleDeleteUser = (userId: number) => {
-    toast.success("User deleted successfully!");
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete user: ${response.status} ${errorText}`);
+      }
+
+      toast.success("User deleted successfully!");
+      fetchUsers();
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete user');
+    }
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setEmployeeForm({
+      name: user.name,
+      email: user.email,
+      organizationId: user.organizationId || selectedEntity?.code || "",
+      hospital: user.hospital,
+      department: user.department || "",
+      ward: user.ward || "",
+      role: user.role,
+      roleId: user.roleId || "",
+      panel: user.role,
+      parentUserId: user.parentUserId || user.parentUser?.id || "",
+      permissions: user.permissions || {},
+      joinedDate: user.joinedDate || "",
+      contactNumber: user.contactNumber || ""
+    });
+    setIsEditUserOpen(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const payload = {
+        name: employeeForm.name,
+        email: employeeForm.email,
+        hospital: employeeForm.hospital,
+        department: employeeForm.department,
+        ward: employeeForm.ward,
+        role: employeeForm.role,
+        roleId: employeeForm.roleId,
+        parentUserId: employeeForm.parentUserId,
+        permissions: employeeForm.permissions,
+        joinedDate: employeeForm.joinedDate,
+        contactNumber: employeeForm.contactNumber
+      };
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/${editingUser._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to update user: ${response.status} ${errorText}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to update user');
+      }
+
+      toast.success("User updated successfully!");
+      setIsEditUserOpen(false);
+      setEditingUser(null);
+      resetForm();
+      fetchUsers();
+    } catch (err) {
+      console.error('Error updating user:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update user');
+      toast.error(err instanceof Error ? err.message : 'Failed to update user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setEmployeeForm({
+      name: "",
+      email: "",
+      organizationId: selectedEntity?.code || "",
+      hospital: "",
+      department: "",
+      ward: "",
+      role: "",
+      roleId: "",
+      panel: "",
+      parentUserId: "",
+      permissions: {},
+      joinedDate: "",
+      contactNumber: ""
+    });
+    setError(null);
   };
 
   return (
@@ -685,6 +843,15 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
 
           {/* Users Table */}
           <div className="rounded-md border">
+            {usersLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-gray-500">Loading users...</p>
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-gray-500">No users found</p>
+              </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -699,35 +866,32 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
               </TableHeader>
               <TableBody>
                 {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user._id}>
                     <TableCell>{user.name}</TableCell>
                     <TableCell className="text-gray-600">{user.email}</TableCell>
-                    <TableCell className="text-gray-600">{user.hospital}</TableCell>
+                    <TableCell className="text-gray-600">{user.hospitalName || user.hospital}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="bg-[#E8F0FF] text-[#0F67FF] border-[#0F67FF]/20">
-                        {user.role === "department-head" ? "Dept Head" :
-                         user.role === "biomedical" ? "Biomedical" :
-                         user.role === "store-manager" ? "Store Mgr" :
-                         "Viewer"}
+                        {user.role}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-gray-600">{user.parent}</TableCell>
+                    <TableCell className="text-gray-600">{user.parentUser?.name || user.parentUserId || '-'}</TableCell>
                     <TableCell>
-                      <Badge variant={user.status === "active" ? "default" : "secondary"} 
-                             className={user.status === "active" ? "bg-[#0EB57D] hover:bg-[#0EB57D]" : ""}>
+                      <Badge variant={user.status?.toLowerCase() === "active" ? "default" : "secondary"} 
+                             className={user.status?.toLowerCase() === "active" ? "bg-[#0EB57D] hover:bg-[#0EB57D]" : ""}>
                         {user.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDeleteUser(user.id)}
+                          onClick={() => handleDeleteUser(user._id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -737,9 +901,140 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
                 ))}
               </TableBody>
             </Table>
+            )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditUserOpen} onOpenChange={(open: boolean) => { setIsEditUserOpen(open); if (!open) { setEditingUser(null); resetForm(); } }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Employee</DialogTitle>
+            <DialogDescription>Update employee details</DialogDescription>
+          </DialogHeader>
+          
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Full Name *</Label>
+              <Input 
+                id="edit-name" 
+                placeholder="Enter full name" 
+                value={employeeForm.name}
+                onChange={(e) => handleFormChange('name', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email Address *</Label>
+              <Input 
+                id="edit-email" 
+                type="email" 
+                placeholder="user@hospital.com" 
+                value={employeeForm.email}
+                onChange={(e) => handleFormChange('email', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-contactNumber">Contact Number</Label>
+              <Input 
+                id="edit-contactNumber" 
+                placeholder="+1234567890" 
+                value={employeeForm.contactNumber}
+                onChange={(e) => handleFormChange('contactNumber', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-joinedDate">Joined Date</Label>
+              <Input 
+                id="edit-joinedDate" 
+                type="date" 
+                value={employeeForm.joinedDate}
+                onChange={(e) => handleFormChange('joinedDate', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-hospital">Hospital *</Label>
+              <Select onValueChange={handleHospitalChange} value={employeeForm.hospital}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select hospital" />
+                </SelectTrigger>
+                <SelectContent>
+                  {hospitals.map((hospital) => (
+                    <SelectItem key={hospital._id} value={hospital._id}>
+                      {hospital.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-department">Department</Label>
+              <Select onValueChange={(value: string) => handleFormChange('department', value)} value={employeeForm.department}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((department) => (
+                    <SelectItem key={department._id} value={department._id}>
+                      {department.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-ward">Ward</Label>
+              <Input 
+                id="edit-ward" 
+                placeholder="Enter ward" 
+                value={employeeForm.ward}
+                onChange={(e) => handleFormChange('ward', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-role">Role *</Label>
+              <Select onValueChange={handleRoleChange} value={employeeForm.roleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role._id} value={role._id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-parentUserId">Parent User ID</Label>
+              <Input 
+                id="edit-parentUserId" 
+                placeholder="Enter parent user ID" 
+                value={employeeForm.parentUserId}
+                onChange={(e) => handleFormChange('parentUserId', e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsEditUserOpen(false); setEditingUser(null); resetForm(); }}>Cancel</Button>
+            <Button 
+              onClick={handleUpdateUser} 
+              className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
+              disabled={loading}
+            >
+              {loading ? 'Updating...' : 'Update Employee'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

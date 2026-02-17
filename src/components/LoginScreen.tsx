@@ -60,7 +60,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setIsLoading(true);
 
     try {
-      const apiUrl = `${API_BASE_URL}/api/auth/login`;
+      const apiUrl = `${import.meta.env.VITE_API_URL}/api/auth/login`;
 
       const requestBody: any = {
         organizationId,
@@ -267,6 +267,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 <Checkbox 
                   id="remember" 
                   checked={rememberMe}
+                  // @ts-ignore
                   onCheckedChange={(checked) => setRememberMe(checked as boolean)}
                 />
                 <Label htmlFor="remember" className="text-gray-600 cursor-pointer">

@@ -57,7 +57,7 @@ export function AssetRequestForm({
   const fetchDepartmentsWithAssets = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-assets`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/departments-with-assets`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -75,7 +75,7 @@ export function AssetRequestForm({
   const fetchAvailableAssets = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${API_BASE_URL}/api/requests/departments-with-assets`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/requests/departments-with-assets`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -113,7 +113,7 @@ export function AssetRequestForm({
           justification: formData.justification,
           department: userDepartment
         };
-        endpoint = `${API_BASE_URL}/api/requests`;
+        endpoint = `${import.meta.env.VITE_API_URL}/api/requests`;
       } else {
         // Specific asset request
         requestData = {
@@ -125,7 +125,7 @@ export function AssetRequestForm({
           priority: formData.priority,
           department: userDepartment
         };
-        endpoint = `${API_BASE_URL}/api/requests/specific-assets`;
+        endpoint = `${import.meta.env.VITE_API_URL}/api/requests/specific-assets`;
       }
 
       const response = await fetch(endpoint, {
@@ -229,6 +229,7 @@ export function AssetRequestForm({
                   <Label htmlFor="assetCategory">Asset Category *</Label>
                   <Select 
                     value={formData.assetCategory} 
+                    // @ts-ignore
                     onValueChange={(value) => setFormData(prev => ({ ...prev, assetCategory: value }))}
                   >
                     <SelectTrigger>
