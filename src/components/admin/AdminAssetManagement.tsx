@@ -320,8 +320,11 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         },
         body: JSON.stringify({
           asset_description: editAsset.asset_description,
+          class: editAsset.class,
+          cost_centre: editAsset.cost_centre,
           quantity: editAsset.quantity,
-          amount: editAsset.amount
+          amount: editAsset.amount,
+          sno: editAsset.serial_number
         })
       });
 
@@ -946,6 +949,24 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <Label htmlFor="edit-class">Class</Label>
+                  <Input 
+                    id="edit-class" 
+                    value={editAsset.class}
+                    onChange={(e) => setEditAsset({...editAsset, class: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-cost-centre">Cost Centre</Label>
+                  <Input 
+                    id="edit-cost-centre" 
+                    value={editAsset.cost_centre}
+                    onChange={(e) => setEditAsset({...editAsset, cost_centre: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <Label htmlFor="edit-quantity">Quantity</Label>
                   <Input 
                     id="edit-quantity" 
@@ -963,6 +984,14 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
                     onChange={(e) => setEditAsset({...editAsset, amount: e.target.value})}
                   />
                 </div>
+              </div>
+              <div>
+                <Label htmlFor="edit-barcode">Barcode (S/N)</Label>
+                <Input 
+                  id="edit-barcode" 
+                  value={editAsset.serial_number}
+                  onChange={(e) => setEditAsset({...editAsset, serial_number: e.target.value})}
+                />
               </div>
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setIsEditOpen(false)}>
