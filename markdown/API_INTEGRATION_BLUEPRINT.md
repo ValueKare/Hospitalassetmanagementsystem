@@ -68,7 +68,7 @@
 ```typescript
 // Frontend API Client Configuration
 const API_CONFIG = {
-  baseURL: process.env.VITE_import.meta.env.VITE_API_URL, // e.g., https://api.valuekare.com/v1
+  baseURL: import.meta.env.VITE_API_URL, // e.g., https://api.valuekare.com/v1
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
