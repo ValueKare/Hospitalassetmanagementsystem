@@ -4,7 +4,6 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
 import {
   Select,
   SelectContent,
@@ -29,17 +28,11 @@ import {
   TableRow,
 } from "../ui/table";
 import {
-  Search,
-  Download,
   Upload,
-  Plus,
   QrCode,
-  Printer,
   Eye,
   Edit,
   Trash2,
-  FileSpreadsheet,
-  Pencil,
   Building2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -47,7 +40,8 @@ import { toast } from "sonner";
 /* ================= TYPES ================= */
 
 interface ApiAsset {
-  id: number;
+  _id?: string;
+  id?: number;
   asset: string;
   asset_description: string;
   barcode: string;
@@ -68,7 +62,7 @@ interface ApiResponse {
 }
 
 interface Asset {
-  id: number;
+  id: number | string;
   asset_id: string;
   asset_description: string;
   serial_number: string;
@@ -84,7 +78,7 @@ interface Asset {
 }
 
 /* ================= COMPONENT ================= */
-
+// @ts-ignore
 export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigate: (screen: string) => void; selectedEntity?: any }) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,7 +86,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
   const [isLoading, setIsLoading] = useState(true);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
-  const [selectedAssets, setSelectedAssets] = useState<number[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<(number | string)[]>([]);
   const [entityHospitals, setEntityHospitals] = useState<any[]>([]);
   const [selectedHospital, setSelectedHospital] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -156,6 +150,15 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
 
   /* ================= FETCH ASSETS ================= */
 
+  // Helper to convert MongoDB Decimal128 to string/number
+  const convertDecimal128 = (value: any): string | null => {
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    if (value.$numberDecimal) return value.$numberDecimal;
+    return null;
+  };
+
   const fetchAssets = async (page: number = 1) => {
     try {
       setIsLoading(true);
@@ -176,8 +179,8 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         status: filterStatus === 'all' ? '' : filterStatus
       });
 
-      console.log('Fetching from:', `${import.meta.env.VITE_API_URL}/api/sql/assets/paginated?${params}`);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/sql/assets/paginated?${params}`, {
+      console.log('Fetching from:', `${import.meta.env.VITE_API_URL}/api/mongo/assets/paginated?${params}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/paginated?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -188,11 +191,11 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
 
       if (json.success) {
         const mapped: Asset[] = json.data.map((a: any) => ({
-          id: a.id,
-          asset_id: a.asset,
-          asset_description: a.asset_description,
-          serial_number: a.barcode || "",
-          model_number: a.asset_key || "",
+          id: a._id || a.id || '',
+          asset_id: a.asset || '',
+          asset_description: a.asset_description || '',
+          serial_number: a.barcode || a.sno || "",
+          model_number: a.asset_key || a.asset || "",
           location: a.business_area || "",
           status: a.status || "Active",
           last_maintenance: a.dc_start || "",
@@ -200,7 +203,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
           cost_centre: a.cost_centre || "",
           quantity: a.quantity || 1,
           bus_area: a.bus_A || null,
-          amount: a.amount || null,
+          amount: convertDecimal128(a.amount),
         }));
 
         console.log('Setting state - totalPages:', json.pagination.totalPages, 'totalAssets:', json.pagination.totalItems, 'currentPage:', page);
@@ -211,7 +214,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       } else {
         console.log('Using fallback endpoint');
         // Fallback to non-paginated endpoint if paginated endpoint doesn't exist
-        const fallbackRes = await fetch(`${import.meta.env.VITE_API_URL}/api/sql/assets/all`, {
+        const fallbackRes = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/all`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -219,11 +222,11 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         const fallbackJson: ApiResponse = await fallbackRes.json();
 
         const mapped: Asset[] = fallbackJson.data.map((a) => ({
-          id: a.id,
-          asset_id: a.asset,
-          asset_description: a.asset_description,
-          serial_number: a.barcode || "",
-          model_number: a.asset_key || "",
+          id: a._id || a.id || '',
+          asset_id: a.asset || '',
+          asset_description: a.asset_description || '',
+          serial_number: a.barcode || a.sno || "",
+          model_number: a.asset_key || a.asset || "",
           location: a.business_area || "",
           status: a.status || "Active",
           last_maintenance: a.dc_start || "",
@@ -231,7 +234,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
           cost_centre: a.cost_centre || "",
           quantity: a.quantity || 1,
           bus_area: a.bus_A || null,
-          amount: a.amount || null,
+          amount: convertDecimal128(a.amount),
         }));
 
         // Client-side pagination for fallback
@@ -312,7 +315,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         return;
       }
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/sql/assets/update/${editAsset.id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/update/${editAsset.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -324,7 +327,8 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
           cost_centre: editAsset.cost_centre,
           quantity: editAsset.quantity,
           amount: editAsset.amount,
-          sno: editAsset.serial_number
+          sno: editAsset.serial_number,
+          status: editAsset.status
         })
       });
 
@@ -352,7 +356,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         return;
       }
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/sql/assets/delete/${deleteAsset.id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/delete/${deleteAsset.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -466,7 +470,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       
       const loadingToast = toast.loading(`Uploading ${file.name} to ${selectedHospital.name}...`);
       
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload/universal`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload/mongo/nbc/upload-excel`, {
         method: "POST",
         headers: {
           'Authorization': `Bearer ${token}`
@@ -531,8 +535,8 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
 
   const filteredAssets = assets.filter((a) => {
     const matchSearch =
-      a.asset_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.asset_description.toLowerCase().includes(searchQuery.toLowerCase());
+      (a.asset_id?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (a.asset_description?.toLowerCase() || '').includes(searchQuery.toLowerCase());
     const matchStatus = filterStatus === "all" || a.status === filterStatus;
     return matchSearch && matchStatus;
   });
@@ -756,7 +760,17 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
                         <TableCell>{a.class}</TableCell>
                         <TableCell>{a.cost_centre}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{a.status}</Badge>
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              a.status === 'Active' ? 'bg-green-100 text-green-800 border-green-200' :
+                              a.status === 'Under Maintenance' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                              a.status === 'Retired' ? 'bg-red-100 text-red-800 border-red-200' :
+                              'bg-gray-100 text-gray-800 border-gray-200'
+                            }
+                          >
+                            {a.status}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Button
@@ -992,6 +1006,22 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
                   value={editAsset.serial_number}
                   onChange={(e) => setEditAsset({...editAsset, serial_number: e.target.value})}
                 />
+              </div>
+              <div>
+                <Label htmlFor="edit-status">Status</Label>
+                <Select 
+                  value={editAsset.status} 
+                  onValueChange={(value: "Active" | "Under Maintenance" | "Retired") => setEditAsset({...editAsset, status: value})}
+                >
+                  <SelectTrigger id="edit-status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Under Maintenance">Under Maintenance</SelectItem>
+                    <SelectItem value="Retired">Retired</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setIsEditOpen(false)}>
