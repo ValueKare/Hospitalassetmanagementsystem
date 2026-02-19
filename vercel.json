@@ -4,5 +4,11 @@
       "main": true,
       "*": false
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "http://13.201.165.80:5001/api/$1"
+    }
+  ]
 }
