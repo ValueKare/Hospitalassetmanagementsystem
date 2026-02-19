@@ -4,7 +4,6 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
 import {
   Select,
   SelectContent,
@@ -29,17 +28,11 @@ import {
   TableRow,
 } from "../ui/table";
 import {
-  Search,
-  Download,
   Upload,
-  Plus,
   QrCode,
-  Printer,
   Eye,
   Edit,
   Trash2,
-  FileSpreadsheet,
-  Pencil,
   Building2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -47,7 +40,8 @@ import { toast } from "sonner";
 /* ================= TYPES ================= */
 
 interface ApiAsset {
-  id: number;
+  _id?: string;
+  id?: number;
   asset: string;
   asset_description: string;
   barcode: string;
@@ -68,7 +62,7 @@ interface ApiResponse {
 }
 
 interface Asset {
-  id: number;
+  id: number | string;
   asset_id: string;
   asset_description: string;
   serial_number: string;
@@ -84,7 +78,7 @@ interface Asset {
 }
 
 /* ================= COMPONENT ================= */
-
+// @ts-ignore
 export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigate: (screen: string) => void; selectedEntity?: any }) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,7 +86,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
   const [isLoading, setIsLoading] = useState(true);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
-  const [selectedAssets, setSelectedAssets] = useState<number[]>([]);
+  const [selectedAssets, setSelectedAssets] = useState<(number | string)[]>([]);
   const [entityHospitals, setEntityHospitals] = useState<any[]>([]);
   const [selectedHospital, setSelectedHospital] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,6 +94,14 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
   const [totalAssets, setTotalAssets] = useState(0);
   const [pageSize] = useState(50); // Load 50 assets per page
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // View/Edit/Delete dialog states
+  const [viewAsset, setViewAsset] = useState<Asset | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [editAsset, setEditAsset] = useState<Asset | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   /* ================= FETCH ENTITIES ================= */
 
@@ -148,6 +150,15 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
 
   /* ================= FETCH ASSETS ================= */
 
+  // Helper to convert MongoDB Decimal128 to string/number
+  const convertDecimal128 = (value: any): string | null => {
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    if (value.$numberDecimal) return value.$numberDecimal;
+    return null;
+  };
+
   const fetchAssets = async (page: number = 1) => {
     try {
       setIsLoading(true);
@@ -168,8 +179,8 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         status: filterStatus === 'all' ? '' : filterStatus
       });
 
-      console.log('Fetching from:', `${import.meta.env.VITE_API_URL}/api/sql/assets/paginated?${params}`);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/sql/assets/paginated?${params}`, {
+      console.log('Fetching from:', `${import.meta.env.VITE_API_URL}/api/mongo/assets/paginated?${params}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/paginated?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -180,11 +191,11 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
 
       if (json.success) {
         const mapped: Asset[] = json.data.map((a: any) => ({
-          id: a.id,
-          asset_id: a.asset,
-          asset_description: a.asset_description,
-          serial_number: a.barcode || "",
-          model_number: a.asset_key || "",
+          id: a._id || a.id || '',
+          asset_id: a.asset || '',
+          asset_description: a.asset_description || '',
+          serial_number: a.barcode || a.sno || "",
+          model_number: a.asset_key || a.asset || "",
           location: a.business_area || "",
           status: a.status || "Active",
           last_maintenance: a.dc_start || "",
@@ -192,7 +203,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
           cost_centre: a.cost_centre || "",
           quantity: a.quantity || 1,
           bus_area: a.bus_A || null,
-          amount: a.amount || null,
+          amount: convertDecimal128(a.amount),
         }));
 
         console.log('Setting state - totalPages:', json.pagination.totalPages, 'totalAssets:', json.pagination.totalItems, 'currentPage:', page);
@@ -203,7 +214,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       } else {
         console.log('Using fallback endpoint');
         // Fallback to non-paginated endpoint if paginated endpoint doesn't exist
-        const fallbackRes = await fetch(`${import.meta.env.VITE_API_URL}/api/sql/assets/all`, {
+        const fallbackRes = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/all`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -211,11 +222,11 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         const fallbackJson: ApiResponse = await fallbackRes.json();
 
         const mapped: Asset[] = fallbackJson.data.map((a) => ({
-          id: a.id,
-          asset_id: a.asset,
-          asset_description: a.asset_description,
-          serial_number: a.barcode || "",
-          model_number: a.asset_key || "",
+          id: a._id || a.id || '',
+          asset_id: a.asset || '',
+          asset_description: a.asset_description || '',
+          serial_number: a.barcode || a.sno || "",
+          model_number: a.asset_key || a.asset || "",
           location: a.business_area || "",
           status: a.status || "Active",
           last_maintenance: a.dc_start || "",
@@ -223,7 +234,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
           cost_centre: a.cost_centre || "",
           quantity: a.quantity || 1,
           bus_area: a.bus_A || null,
-          amount: a.amount || null,
+          amount: convertDecimal128(a.amount),
         }));
 
         // Client-side pagination for fallback
@@ -277,9 +288,98 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
     }
   };
 
+  /* ================= VIEW / EDIT / DELETE HANDLERS ================= */
+
+  const handleViewAsset = (asset: Asset) => {
+    setViewAsset(asset);
+    setIsViewOpen(true);
+  };
+
+  const handleEditAsset = (asset: Asset) => {
+    setEditAsset(asset);
+    setIsEditOpen(true);
+  };
+
+  const handleDeleteAsset = (asset: Asset) => {
+    setDeleteAsset(asset);
+    setIsDeleteOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editAsset) return;
+    
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast.error("Authentication token missing. Please log in again.");
+        return;
+      }
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/update/${editAsset.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          asset_description: editAsset.asset_description,
+          class: editAsset.class,
+          cost_centre: editAsset.cost_centre,
+          quantity: editAsset.quantity,
+          amount: editAsset.amount,
+          sno: editAsset.serial_number,
+          status: editAsset.status
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || errorData.message || 'Update failed');
+      }
+
+      toast.success(`Asset ${editAsset.asset_id} updated successfully`);
+      setIsEditOpen(false);
+      setEditAsset(null);
+      fetchAssets(currentPage); // Refresh the list
+    } catch (err: any) {
+      toast.error(`Failed to update asset: ${err.message}`);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteAsset) return;
+    
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast.error("Authentication token missing. Please log in again.");
+        return;
+      }
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/delete/${deleteAsset.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || errorData.message || 'Delete failed');
+      }
+
+      toast.success(`Asset ${deleteAsset.asset_id} deleted successfully`);
+      setIsDeleteOpen(false);
+      setDeleteAsset(null);
+      fetchAssets(currentPage); // Refresh the list
+    } catch (err: any) {
+      toast.error(`Failed to delete asset: ${err.message}`);
+    }
+  };
+
   /* ================= BARCODE ================= */
 
-  const generateBarcodeForAsset = async (assetId: number) => {
+  const generateBarcodeForAsset = async (assetKey: string) => {
     try {
       // Get authentication token from localStorage
       const token = localStorage.getItem('accessToken');
@@ -288,7 +388,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         return;
       }
       
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/barcode/${assetId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/barcode/${encodeURIComponent(assetKey)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -309,8 +409,12 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       return;
     }
 
-    for (const id of selectedAssets) {
-      await generateBarcodeForAsset(id);
+    // Get selected asset objects and generate barcodes using asset_key (model_number)
+    const selectedAssetObjects = assets.filter(a => selectedAssets.includes(a.id));
+    for (const asset of selectedAssetObjects) {
+      if (asset.model_number) {
+        await generateBarcodeForAsset(asset.model_number);
+      }
     }
 
     setSelectedAssets([]);
@@ -366,7 +470,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       
       const loadingToast = toast.loading(`Uploading ${file.name} to ${selectedHospital.name}...`);
       
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload/universal`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/upload/mongo/nbc/upload-excel`, {
         method: "POST",
         headers: {
           'Authorization': `Bearer ${token}`
@@ -385,20 +489,39 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
 
       // Show detailed success message
       const hospitalName = selectedHospital.name;
-      if (result.errors && result.errors.length > 0) {
+      
+      // Handle case when no assets were inserted
+      if (result.inserted === 0) {
+        if (result.errors && result.errors.length > 0) {
+          // Show first few errors in the toast
+          const errorSummary = result.errors.slice(0, 3).map((e: any) => `Row ${e.row}: ${e.error}`).join('\n');
+          const moreErrors = result.errors.length > 3 ? `\n...and ${result.errors.length - 3} more errors` : '';
+          toast.error(`No assets were uploaded. ${result.errors.length} rows failed:\n${errorSummary}${moreErrors}`, {
+            duration: 8000
+          });
+          console.error('Upload errors:', result.errors);
+        } else {
+          toast.error('No assets were uploaded. Please check your CSV file format.', {
+            duration: 5000
+          });
+        }
+      } else if (result.errors && result.errors.length > 0) {
         toast.success(`Successfully uploaded ${result.inserted} assets to ${hospitalName}. ${result.errors.length} items had errors.`, {
           duration: 5000
         });
+        // Reset and refresh
+        setIsImportOpen(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        fetchAssets(); // Refresh the assets list
       } else {
         toast.success(`Successfully uploaded ${result.inserted} assets to ${hospitalName}`, {
           duration: 3000
         });
+        // Reset and refresh
+        setIsImportOpen(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        fetchAssets(); // Refresh the assets list
       }
-      
-      // Reset and refresh
-      setIsImportOpen(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      fetchAssets(); // Refresh the assets list
       
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -412,8 +535,8 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
 
   const filteredAssets = assets.filter((a) => {
     const matchSearch =
-      a.asset_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.asset_description.toLowerCase().includes(searchQuery.toLowerCase());
+      (a.asset_id?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (a.asset_description?.toLowerCase() || '').includes(searchQuery.toLowerCase());
     const matchStatus = filterStatus === "all" || a.status === filterStatus;
     return matchSearch && matchStatus;
   });
@@ -566,7 +689,9 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-600 font-medium mb-2">📋 Import Instructions:</p>
                         <ul className="text-xs text-gray-500 space-y-1">
-                          <li>• Ensure CSV has required columns: asset, asset_description, etc.</li>
+                          <li>• Required columns: asset, asset_description, depky (department code), block (building code)</li>
+                          <li>• depky must match an existing department code in the system</li>
+                          <li>• block must match an existing building code for the selected hospital</li>
                           <li>• Maximum file size: 10MB</li>
                           <li>• Assets will be assigned to selected hospital</li>
                           <li>• Duplicate assets will be skipped</li>
@@ -635,26 +760,49 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
                         <TableCell>{a.class}</TableCell>
                         <TableCell>{a.cost_centre}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{a.status}</Badge>
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              a.status === 'Active' ? 'bg-green-100 text-green-800 border-green-200' :
+                              a.status === 'Under Maintenance' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                              a.status === 'Retired' ? 'bg-red-100 text-red-800 border-red-200' :
+                              'bg-gray-100 text-gray-800 border-gray-200'
+                            }
+                          >
+                            {a.status}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => generateBarcodeForAsset(a.id)}
+                            onClick={() => generateBarcodeForAsset(a.model_number)}
+                            disabled={!a.model_number}
                           >
                             <QrCode className="h-4 w-4 mr-1" />
                             Generate
                           </Button>
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => handleViewAsset(a)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="ghost">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => handleEditAsset(a)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="ghost">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => handleDeleteAsset(a)}
+                          >
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </TableCell>
@@ -732,6 +880,187 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
               Generate
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= VIEW ASSET DIALOG ================= */}
+
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Asset Details</DialogTitle>
+          </DialogHeader>
+          {viewAsset && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-500">Asset ID</Label>
+                  <p className="font-medium">{viewAsset.asset_id}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Status</Label>
+                  <p className="font-medium">{viewAsset.status}</p>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-gray-500">Description</Label>
+                  <p className="font-medium">{viewAsset.asset_description}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Class</Label>
+                  <p className="font-medium">{viewAsset.class}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Cost Centre</Label>
+                  <p className="font-medium">{viewAsset.cost_centre}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Quantity</Label>
+                  <p className="font-medium">{viewAsset.quantity}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Amount</Label>
+                  <p className="font-medium">{viewAsset.amount || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Asset Key</Label>
+                  <p className="font-medium text-xs">{viewAsset.model_number}</p>
+                </div>
+                <div>
+                  <Label className="text-gray-500">Barcode</Label>
+                  <p className="font-medium text-xs">{viewAsset.serial_number || '-'}</p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setIsViewOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= EDIT ASSET DIALOG ================= */}
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Asset</DialogTitle>
+          </DialogHeader>
+          {editAsset && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-asset-id">Asset ID</Label>
+                <Input id="edit-asset-id" value={editAsset.asset_id} disabled />
+              </div>
+              <div>
+                <Label htmlFor="edit-description">Description</Label>
+                <Input 
+                  id="edit-description" 
+                  value={editAsset.asset_description}
+                  onChange={(e) => setEditAsset({...editAsset, asset_description: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-class">Class</Label>
+                  <Input 
+                    id="edit-class" 
+                    value={editAsset.class}
+                    onChange={(e) => setEditAsset({...editAsset, class: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-cost-centre">Cost Centre</Label>
+                  <Input 
+                    id="edit-cost-centre" 
+                    value={editAsset.cost_centre}
+                    onChange={(e) => setEditAsset({...editAsset, cost_centre: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-quantity">Quantity</Label>
+                  <Input 
+                    id="edit-quantity" 
+                    type="number"
+                    value={editAsset.quantity}
+                    onChange={(e) => setEditAsset({...editAsset, quantity: parseInt(e.target.value) || 1})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-amount">Amount</Label>
+                  <Input 
+                    id="edit-amount" 
+                    type="number"
+                    value={editAsset.amount || ''}
+                    onChange={(e) => setEditAsset({...editAsset, amount: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="edit-barcode">Barcode (S/N)</Label>
+                <Input 
+                  id="edit-barcode" 
+                  value={editAsset.serial_number}
+                  onChange={(e) => setEditAsset({...editAsset, serial_number: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-status">Status</Label>
+                <Select 
+                  value={editAsset.status} 
+                  onValueChange={(value: "Active" | "Under Maintenance" | "Retired") => setEditAsset({...editAsset, status: value})}
+                >
+                  <SelectTrigger id="edit-status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Under Maintenance">Under Maintenance</SelectItem>
+                    <SelectItem value="Retired">Retired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit} className="bg-[#0F67FF]">
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= DELETE ASSET DIALOG ================= */}
+
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Asset</DialogTitle>
+          </DialogHeader>
+          {deleteAsset && (
+            <div className="space-y-4">
+              <p>Are you sure you want to delete this asset?</p>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p><strong>Asset ID:</strong> {deleteAsset.asset_id}</p>
+                <p><strong>Description:</strong> {deleteAsset.asset_description}</p>
+              </div>
+              <p className="text-red-600 text-sm">This action cannot be undone.</p>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmDelete} variant="destructive">
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -72,7 +72,9 @@ const fetchEntities = async () => {
       throw new Error('Failed to fetch entities');
     }
     const data = await response.json();
-    return data.entities || [];
+    const allEntities = data.entities || [];
+    // Filter out inactive (soft-deleted) entities
+    return allEntities.filter((entity: any) => entity.isActive !== false);
   } catch (error) {
     console.error('Error fetching entities:', error);
     return [];
