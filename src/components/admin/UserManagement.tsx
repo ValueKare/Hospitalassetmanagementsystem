@@ -102,7 +102,7 @@ const getDepartmentId = (user: User): string => {
   if (typeof user.department === 'string') return user.department;
   return user.department._id || '';
 };
-
+//@ts-ignore
 export function UserManagement({ onNavigate, selectedEntity }: UserManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
