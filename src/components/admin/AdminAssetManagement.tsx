@@ -78,7 +78,7 @@ interface Asset {
 }
 
 /* ================= COMPONENT ================= */
-
+// @ts-ignore
 export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigate: (screen: string) => void; selectedEntity?: any }) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [searchQuery, setSearchQuery] = useState("");

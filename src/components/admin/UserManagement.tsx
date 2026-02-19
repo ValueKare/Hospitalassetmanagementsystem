@@ -70,9 +70,9 @@ interface User {
   email: string;
   role: string;
   roleId?: string;
-  hospital: string;
+  hospital: string | { _id: string; name: string; hospitalId?: string };
   hospitalName?: string;
-  department?: string;
+  department?: string | { _id: string; name: string; code?: string };
   ward?: string;
   status: string;
   parentUser?: { id: string; name: string; role: string };
@@ -82,6 +82,26 @@ interface User {
   permissions?: Record<string, boolean>;
   organizationId?: string;
 }
+
+// Helper function to get hospital name from user
+const getHospitalName = (user: User): string => {
+  if (user.hospitalName) return user.hospitalName;
+  if (typeof user.hospital === 'string') return user.hospital;
+  return user.hospital?.name || '';
+};
+
+// Helper function to get hospital ID from user
+const getHospitalId = (user: User): string => {
+  if (typeof user.hospital === 'string') return user.hospital;
+  return user.hospital?._id || '';
+};
+
+// Helper function to get department ID from user
+const getDepartmentId = (user: User): string => {
+  if (!user.department) return '';
+  if (typeof user.department === 'string') return user.department;
+  return user.department._id || '';
+};
 
 export function UserManagement({ onNavigate, selectedEntity }: UserManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -287,7 +307,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
       const params = new URLSearchParams();
       if (selectedEntity?.code) params.append('organizationId', selectedEntity.code);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/list?${params.toString()}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/all?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -495,8 +515,8 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
       name: user.name,
       email: user.email,
       organizationId: user.organizationId || selectedEntity?.code || "",
-      hospital: user.hospital,
-      department: user.department || "",
+      hospital: getHospitalId(user),
+      department: getDepartmentId(user),
       ward: user.ward || "",
       role: user.role,
       roleId: user.roleId || "",
@@ -869,7 +889,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
                   <TableRow key={user._id}>
                     <TableCell>{user.name}</TableCell>
                     <TableCell className="text-gray-600">{user.email}</TableCell>
-                    <TableCell className="text-gray-600">{user.hospitalName || user.hospital}</TableCell>
+                    <TableCell className="text-gray-600">{getHospitalName(user)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="bg-[#E8F0FF] text-[#0F67FF] border-[#0F67FF]/20">
                         {user.role}
