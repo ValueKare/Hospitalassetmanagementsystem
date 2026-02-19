@@ -61,7 +61,6 @@
             "dev": "vite",
             "local": "VITE_API_URL=http://localhost:5001 vite",
             "prod": "VITE_API_URL=http://13.201.165.80:5001 vite",
-            "build": "vite build",
-            "build:prod": "VITE_API_URL=http://13.201.165.80:5001 vite build"
+            "build": "vite build"
       }
 }

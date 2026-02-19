@@ -60,7 +60,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setIsLoading(true);
 
     try {
-      const apiUrl = `${import.meta.env.VITE_API_URL}/api/auth/login`;
+      const apiUrl = `${import.meta.env.VITE_API_URL || ''}/api/auth/login`;
 
       const requestBody: any = {
         organizationId,
