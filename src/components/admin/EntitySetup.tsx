@@ -83,6 +83,7 @@ interface HospitalFormData {
   location: string;
   contactEmail: string;
   phone: string;
+  hospitalId: string; // User-defined hospital code (e.g., HOSP-0001)
 }
 
 // API response interface
@@ -181,14 +182,6 @@ interface BuildingFormData {
   totalFloors: number;
 }
 
-// Building API response interface
-interface BuildingApiResponse {
-  success: boolean;
-  data: {
-    buildings: BuildingData[];
-  };
-}
-
 // Department data interface
 interface DepartmentData {
   _id: string;
@@ -230,7 +223,8 @@ export function EntitySetup() {
     entityCode: "",
     location: "",
     contactEmail: "",
-    phone: ""
+    phone: "",
+    hospitalId: ""
   });
   const [hospitals, setHospitals] = useState<HospitalData[]>([]);
   const [isLoadingHospitals, setIsLoadingHospitals] = useState(true);
@@ -729,7 +723,8 @@ export function EntitySetup() {
         entityCode: hospitalForm.entityCode,
         location: hospitalForm.location,
         contactEmail: hospitalForm.contactEmail,
-        phone: hospitalForm.phone
+        phone: hospitalForm.phone,
+        hospitalId: hospitalForm.hospitalId
       };
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
@@ -764,7 +759,8 @@ export function EntitySetup() {
         entityCode: "",
         location: "",
         contactEmail: "",
-        phone: ""
+        phone: "",
+        hospitalId: ""
       });
       setIsAddHospitalOpen(false);
 
@@ -1227,13 +1223,20 @@ export function EntitySetup() {
       }
 
       // First fetch buildings to get building name mapping
+      // Use both 'id' and '_id' as keys for lookup since buildingId can reference either
       const buildingsMap: Record<string, { name: string; hospitalId: string; hospitalName: string }> = {};
       buildings.forEach(b => {
-        buildingsMap[b.id] = { 
+        const buildingInfo = { 
           name: b.name, 
           hospitalId: b.hospitalId || b.organizationId,
           hospitalName: b.hospitalName || b.organizationId
         };
+        // Map by custom 'id' field
+        buildingsMap[b.id] = buildingInfo;
+        // Also map by MongoDB '_id' as fallback
+        if (b._id) {
+          buildingsMap[b._id] = buildingInfo;
+        }
       });
 
       // First fetch entities to get their codes
@@ -1983,6 +1986,19 @@ export function EntitySetup() {
                       <DialogDescription>Register a new hospital entity in the system</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleCreateHospital} className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="hospital-code">Hospital Code *</Label>
+                        <Input
+                          id="hospital-code"
+                          placeholder="e.g., HOSP-0001"
+                          value={hospitalForm.hospitalId}
+                          onChange={(e) => handleHospitalFormChange('hospitalId', e.target.value.toUpperCase())}
+                          required
+                          pattern="^HOSP-\d{4}$"
+                          title="Hospital code must be in format HOSP-0001 (HOSP- followed by 4 digits)"
+                        />
+                        <p className="text-xs text-gray-500">Enter a unique hospital code (format: HOSP-0001)</p>
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="hospital-name">Hospital Name</Label>
                         <Input
