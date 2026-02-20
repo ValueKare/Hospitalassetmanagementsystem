@@ -36,6 +36,7 @@ import {
   Building2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAssetStore } from "../../store/useAssetStore";
 
 /* ================= TYPES ================= */
 
@@ -80,19 +81,35 @@ interface Asset {
 /* ================= COMPONENT ================= */
 // @ts-ignore
 export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigate: (screen: string) => void; selectedEntity?: any }) {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [isLoading, setIsLoading] = useState(true);
+  // Zustand store
+  const {
+    assets,
+    metadata,
+    currentPage,
+    totalPages,
+    pageSize,
+    searchQuery,
+    filterStatus,
+    loading: isLoading,
+    selectedHospitalId,
+    setAssets,
+    setCurrentPage,
+    setTotalPages,
+    setSearchQuery,
+    setFilterStatus,
+    setLoading: setIsLoading,
+    setSelectedHospitalId,
+    setHospitalSummary,
+    updateAsset,
+    deleteAsset: deleteAssetFromStore,
+  } = useAssetStore();
+  
+  // Local UI state
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<(number | string)[]>([]);
   const [entityHospitals, setEntityHospitals] = useState<any[]>([]);
   const [selectedHospital, setSelectedHospital] = useState<any>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalAssets, setTotalAssets] = useState(0);
-  const [pageSize] = useState(50); // Load 50 assets per page
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // View/Edit/Delete dialog states
@@ -102,6 +119,9 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  
+  // Expose totalAssets from metadata for external use
+  const totalAssets = metadata.totalAssets;
 
   /* ================= FETCH ENTITIES ================= */
 
@@ -209,8 +229,19 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         console.log('Setting state - totalPages:', json.pagination.totalPages, 'totalAssets:', json.pagination.totalItems, 'currentPage:', page);
         setAssets(mapped);
         setTotalPages(json.pagination.totalPages);
-        setTotalAssets(json.pagination.totalItems);
         setCurrentPage(page);
+        // Store hospital summary for dashboard integration
+        if (selectedHospital) {
+          setHospitalSummary(selectedHospital.hospitalId || selectedHospital._id, {
+            hospitalId: selectedHospital.hospitalId || selectedHospital._id,
+            hospitalName: selectedHospital.name,
+            totalAssets: json.pagination.totalItems,
+            activeAssets: mapped.filter((a: Asset) => a.status?.toLowerCase() === 'active').length,
+            maintenanceAssets: mapped.filter((a: Asset) => a.status?.toLowerCase().includes('maintenance')).length,
+            totalValue: mapped.reduce((sum: number, a: Asset) => sum + parseFloat(a.amount || '0'), 0),
+            lastUpdated: new Date()
+          });
+        }
       } else {
         console.log('Using fallback endpoint');
         // Fallback to non-paginated endpoint if paginated endpoint doesn't exist
@@ -247,7 +278,6 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         
         setAssets(paginatedAssets);
         setTotalPages(calculatedTotalPages);
-        setTotalAssets(mapped.length);
         setCurrentPage(page);
       }
     } catch (err) {
@@ -596,10 +626,6 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       )}
 
       <Tabs defaultValue="assets">
-        <TabsList>
-          <TabsTrigger value="assets">Assets</TabsTrigger>
-          <TabsTrigger value="barcode">Barcode & Labels</TabsTrigger>
-        </TabsList>
 
         {/* ================= ASSET LIST ================= */}
 
@@ -839,26 +865,6 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ================= BARCODE ================= */}
-
-        <TabsContent value="barcode">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bulk Barcode Generation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button
-                disabled={selectedAssets.length === 0}
-                onClick={() => setIsBarcodeDialogOpen(true)}
-                className="bg-[#0F67FF]"
-              >
-                <QrCode className="h-4 w-4 mr-2" />
-                Generate Barcodes ({selectedAssets.length})
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>

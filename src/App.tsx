@@ -40,6 +40,7 @@ import { RequestorDashboard } from "./components/inventory/RequestorDashboard";
 import { ApproverDashboard } from "./components/inventory/ApproverDashboard";
 
 // Shared/User Panel Components
+import { Level1UserDashboard } from "./components/dashboards/Level1UserDashboard";
 import { AssetManagement } from "./components/AssetManagement";
 import { AssetDetail } from "./components/AssetDetail";
 import { MaintenanceCalendar } from "./components/MaintenanceCalendar";
@@ -50,11 +51,11 @@ import { AssetCategoryManagement } from "./components/user/AssetCategoryManageme
 import { UserAuditManagement } from "./components/user/UserAuditManagement";
 import { BuildingFloorManagement } from "./components/user/BuildingFloorManagement";
 import { Dashboard } from "./components/Dashboard";
-import { Level1UserDashboard } from "./components/dashboards/Level1UserDashboard";
 import { AssetRequestForm } from "./components/AssetRequestForm";
 
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
+import { initializeSession, clearSessionStores } from './services/sessionService';
 
 // const import.meta.env.VITE_API_URL = "http://localhost:5001";
 
@@ -105,6 +106,9 @@ type Screen =
   | "viewer"
   | "doctor"
   | "nurse"
+  | "department-head"
+  | "biomedical"
+  | "store-manager"
   | "level-1-approver"
   | "level-2-approver"
   | "level-3-approver"
@@ -177,6 +181,20 @@ const validateSession = async (accessToken: string) => {
             if (isSessionValid) {
               setUserRole(userData.role);
               setUserPanel(userData.panel);
+              
+              // Initialize session and populate store
+              console.log('🚀 Restoring session for role:', userData.role);
+              const sessionInitialized = await initializeSession(
+                accessToken,
+                userData.role
+              );
+              
+              if (sessionInitialized) {
+                console.log('✅ Session and store restored successfully');
+              } else {
+                console.warn('⚠️ Session restore failed, but authentication valid');
+              }
+              
               // Set screen based on user role
               if (userData.role === 'level1_user') {
                 setCurrentScreen('level1_user');
@@ -247,6 +265,9 @@ const validateSession = async (accessToken: string) => {
   };
 
   const handleLogout = () => {
+    // Clear all stores
+    clearSessionStores();
+    
     // Clear localStorage
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -271,6 +292,7 @@ const validateSession = async (accessToken: string) => {
   };
 
   // Fetch entities early in the app lifecycle
+  // Note: We no longer auto-select the first entity - user must manually select
   useEffect(() => {
     const fetchEntitiesEarly = async () => {
       if (userRole === "superadmin") {
@@ -279,11 +301,8 @@ const validateSession = async (accessToken: string) => {
           if (response.ok) {
             const data = await response.json();
             const entityList = data.entities || [];
-            if (entityList.length > 0) {
-              const firstEntity = entityList[0];
-              setSelectedEntity(firstEntity);
-              setEntityLoading(false);
-            }
+            // Don't auto-select - just log the available entities
+            console.log('Available entities:', entityList.length);
           }
         } catch (error) {
           console.error('Failed to fetch entities early:', error);
@@ -305,7 +324,23 @@ const validateSession = async (accessToken: string) => {
     if (currentScreen !== "login" && userRole) {
       const interval = setInterval(async () => {
         const accessToken = localStorage.getItem('accessToken');
-        if (accessToken) {
+        const expiresIn = localStorage.getItem('expiresIn');
+        const loginTime = localStorage.getItem('loginTime');
+        
+        if (accessToken && expiresIn && loginTime) {
+          // Check if token is about to expire (within 10 minutes)
+          const expirationDuration = parseInt(expiresIn) * 1000;
+          const expirationTime = parseInt(loginTime) + expirationDuration;
+          const currentTime = Date.now();
+          const timeRemaining = expirationTime - currentTime;
+          
+          // Skip validation if token is about to expire (let it expire naturally)
+          // or if it's already expired
+          if (timeRemaining < 600000) { // 10 minutes
+            console.log('Token expiring soon or expired, skipping periodic validation');
+            return;
+          }
+          
           const isSessionValid = await validateSession(accessToken);
           if (!isSessionValid) {
             console.log('Session invalidated during periodic check');
@@ -345,39 +380,6 @@ const validateSession = async (accessToken: string) => {
     return <SuperAdminDashboard onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
   };
 
-  const renderUserDashboard = () => {
-    switch (userRole) {
-      case "department-head":
-        return <DepartmentHeadDashboard onNavigate={handleNavigate} />;
-      case "hod":
-        return <HODDashboard onNavigate={handleNavigate} hodName="Dr. Michael Chen" department="Cardiology" />;
-      case "biomedical":
-        return <BiomedicalDashboard onNavigate={handleNavigate} />;
-      case "store-manager":
-        return <StoreManagerDashboard onNavigate={handleNavigate} />;
-      case "inventory-manager":
-        return <InventoryDashboard onNavigate={handleNavigate} managerName="John Smith" />;
-      case "purchase-manager":
-        return <PurchaseDashboard onNavigate={handleNavigate} managerName="Emily Davis" />;
-      case "budget-committee":
-        return <BudgetCommitteeDashboard onNavigate={handleNavigate} committeeMember="Robert Wilson" />;
-      case "cfo":
-        return <CFODashboard onNavigate={handleNavigate} cfoName="Lisa Anderson" />;
-      case "viewer":
-        return <ViewerDashboard onNavigate={handleNavigate} />;
-      case "doctor":
-        return <RequestorDashboard onNavigate={handleNavigate} userRole="doctor" userName="Dr. Sarah Johnson" userDepartment="Cardiology" />;
-      case "nurse":
-        return <RequestorDashboard onNavigate={handleNavigate} userRole="nurse" userName="Emily Davis" userDepartment="ICU" />;
-      case "level-1-approver":
-      case "level-2-approver":
-      case "level-3-approver":
-        return <ApproverDashboard onNavigate={handleNavigate} approverLevel={userRole.replace("-approver", "")} approverName="Dr. Raj Kumar" />;
-      default:
-        return <DepartmentHeadDashboard onNavigate={handleNavigate} />;
-    }
-  };
-
   const renderAdminContent = () => {
     switch (currentScreen) {
       case "dashboard":
@@ -385,10 +387,11 @@ const validateSession = async (accessToken: string) => {
       case "user-management":
         return <UserManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
       case "audit-users":
-        return <UserManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />; // Can create separate AuditUserManagement if needed
+        return <UserManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} userRoleFilter="audit" />;
       case "user-rights":
         return <UserRightsManagement onNavigate={handleNavigate} />;
       case "entity-setup":
+        //@ts-ignore
         return <EntitySetup onNavigate={handleNavigate} />;
       case "admin-assets":
         return <AdminAssetManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
@@ -496,21 +499,36 @@ const validateSession = async (accessToken: string) => {
           userDepartment={userData.department || userData.departmentName || "Department"} 
           userHospital={userData.hospital || "Hospital"} 
         />;
+      case "hod-dashboard":
+        return <HODDashboard onNavigate={handleNavigate} hodName="Dr. Michael Chen" department="Cardiology" />;
+      case "cfo-dashboard":
+        return <CFODashboard onNavigate={handleNavigate} cfoName="Lisa Anderson" />;
+      case "doctor":
+        return <ClinicalDashboard onNavigate={handleNavigate} userRole="doctor" />;
+      case "nurse":
+        return <ClinicalDashboard onNavigate={handleNavigate} userRole="nurse" />;
+      case "department-head":
+        return <DepartmentHeadDashboard onNavigate={handleNavigate} />;
+      case "biomedical":
+        return <BiomedicalDashboard onNavigate={handleNavigate} />;
+      case "store-manager":
+        return <StoreManagerDashboard onNavigate={handleNavigate} />;
+      case "viewer":
+        return <ViewerDashboard onNavigate={handleNavigate} />;
+      case "requestor":
+        return <RequestorDashboard onNavigate={handleNavigate} userRole="requestor" userName="Requestor" userDepartment="Department" />;
       case "approver-l1":
       case "approver-l2":
       case "approver-l3":
         return <ApproverDashboard onNavigate={handleNavigate} approverLevel={currentScreen.replace("approver-", "")} approverName="Approver" />;
-      case "hod-dashboard":
-        return <HODDashboard onNavigate={handleNavigate} hodName="Dr. Michael Chen" department="Cardiology" />;
       case "inventory-dashboard":
-        return <InventoryDashboard onNavigate={handleNavigate} managerName="John Smith" />;
+        return <InventoryDashboard onNavigate={handleNavigate} managerName="Inventory Manager" />;
       case "purchase-dashboard":
-        return <PurchaseDashboard onNavigate={handleNavigate} managerName="Emily Davis" />;
+        return <PurchaseDashboard onNavigate={handleNavigate} managerName="Purchase Manager" />;
       case "budget-dashboard":
-        return <BudgetCommitteeDashboard onNavigate={handleNavigate} committeeMember="Robert Wilson" />;
-      case "cfo-dashboard":
-        return <CFODashboard onNavigate={handleNavigate} cfoName="Lisa Anderson" />;
+        return <BudgetCommitteeDashboard onNavigate={handleNavigate} committeeMember="Committee Member" />;
       default:
+        // Default to dashboard for any other role
         return <Dashboard onNavigate={handleNavigate} userRole={userRole} />;
     }
   };

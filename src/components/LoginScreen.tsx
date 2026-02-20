@@ -6,16 +6,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Checkbox } from "./ui/checkbox";
 import { Building2, Mail, Lock, Shield, UserCog } from "lucide-react";
+import { initializeSession } from "../services/sessionService";
 
 interface LoginScreenProps {
   onLogin: (role: string, panel: string, userData?: any) => void;
 }
 
-interface DeviceInfo {
-  userAgent: string;
-  ipAddress: string;
-  deviceType: string;
-}
+// interface DeviceInfo {
+//   userAgent: string;
+//   ipAddress: string;
+//   deviceType: string;
+// }
 
 interface LoginResponse {
   success: boolean;
@@ -28,13 +29,13 @@ interface LoginResponse {
   };
 }
 
-const getDeviceInfo = (): DeviceInfo => {
-  return {
-    userAgent: navigator.userAgent,
-    ipAddress: "192.168.1.1", // You might want to get this from a service
-    deviceType: /Mobile|Android|iPhone|iPad/.test(navigator.userAgent) ? "mobile" : "desktop"
-  };
-};
+// const getDeviceInfo = (): DeviceInfo => {
+//   return {
+//     userAgent: navigator.userAgent,
+//     ipAddress: "192.168.1.1", // You might want to get this from a service
+//     deviceType: /Mobile|Android|iPhone|iPad/.test(navigator.userAgent) ? "mobile" : "desktop"
+//   };
+// };
 
 const storeAuthData = (response: any) => {
   localStorage.setItem('accessToken', response.data.accessToken);
@@ -89,6 +90,19 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         
         // Store authentication data
         storeAuthData(data);
+        
+        // Initialize session and populate store with dashboard data
+        console.log('🚀 Initializing session after login...');
+        const sessionInitialized = await initializeSession(
+          data.data.accessToken,
+          data.data.user.role
+        );
+        
+        if (sessionInitialized) {
+          console.log('✅ Session initialized successfully');
+        } else {
+          console.warn('⚠️ Session initialization failed, but login succeeded');
+        }
         
         // Call onLogin with user data
         onLogin(data.data.user.role, data.data.user.panel, data.data);

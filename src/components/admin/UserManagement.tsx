@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
-import { Search, Plus, Edit2, Trash2, UserPlus, Download } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, UserPlus, Download, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserManagementProps {
   onNavigate: (screen: string) => void;
   selectedEntity?: Entity | null;
+  userRoleFilter?: string; // 'audit' for audit users, undefined for regular admins
 }
 
 interface Entity {
@@ -66,34 +67,44 @@ interface Hospital {
 
 interface User {
   _id: string;
-  name: string;
+  name?: string;
+  username?: string;
   email: string;
   role: string;
-  roleId?: string;
-  hospital: string | { _id: string; name: string; hospitalId?: string };
+  roleId?: string | { _id: string; name: string; permissions?: Record<string, boolean> };
+  hospital?: string | { _id: string; name: string; hospitalId?: string };
+  hospitalId?: string | { _id: string; name: string; hospitalId?: string };
   hospitalName?: string;
   department?: string | { _id: string; name: string; code?: string };
   ward?: string;
-  status: string;
+  status?: string;
+  isOnline?: boolean;
   parentUser?: { id: string; name: string; role: string };
   parentUserId?: string;
   contactNumber?: string;
   joinedDate?: string;
   permissions?: Record<string, boolean>;
   organizationId?: string;
+  panel?: string;
+  lastActive?: string;
+  lastLogin?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Helper function to get hospital name from user
 const getHospitalName = (user: User): string => {
   if (user.hospitalName) return user.hospitalName;
-  if (typeof user.hospital === 'string') return user.hospital;
-  return user.hospital?.name || '';
+  const hospitalField = user.hospital || user.hospitalId;
+  if (typeof hospitalField === 'string') return hospitalField;
+  return hospitalField?.name || '';
 };
 
 // Helper function to get hospital ID from user
 const getHospitalId = (user: User): string => {
-  if (typeof user.hospital === 'string') return user.hospital;
-  return user.hospital?._id || '';
+  const hospitalField = user.hospital || user.hospitalId;
+  if (typeof hospitalField === 'string') return hospitalField;
+  return hospitalField?._id || '';
 };
 
 // Helper function to get department ID from user
@@ -102,14 +113,20 @@ const getDepartmentId = (user: User): string => {
   if (typeof user.department === 'string') return user.department;
   return user.department._id || '';
 };
-//@ts-ignore
-export function UserManagement({ onNavigate, selectedEntity }: UserManagementProps) {
+
+// Helper function to get user name
+const getUserName = (user: User): string => {
+  return user.name || user.username || 'Unknown';
+};
+export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: UserManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isViewUserOpen, setIsViewUserOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   
@@ -138,7 +155,8 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
   const [error, setError] = useState<string | null>(null);
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const userName = getUserName(user);
+    const matchesSearch = userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === "all" || user.role === filterRole;
     const matchesStatus = filterStatus === "all" || user.status?.toLowerCase() === filterStatus;
@@ -305,7 +323,23 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
       }
 
       const params = new URLSearchParams();
-      if (selectedEntity?.code) params.append('organizationId', selectedEntity.code);
+      
+      // Get current user info from localStorage to check if superadmin
+      const userStr = localStorage.getItem('user');
+      const currentUser = userStr ? JSON.parse(userStr) : null;
+      const isSuperadmin = currentUser?.role === 'superadmin';
+      
+      // For superadmin, include all admins across all organizations
+      if (isSuperadmin) {
+        params.append('includeAll', 'true');
+      } else if (selectedEntity?.code) {
+        params.append('organizationId', selectedEntity.code);
+      }
+      
+      // Add role filter for audit users
+      if (userRoleFilter) {
+        params.append('role', userRoleFilter);
+      }
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/all?${params.toString()}`, {
         method: 'GET',
@@ -320,9 +354,13 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
       }
 
       const data = await response.json();
+      console.log('Users API response:', data);
       if (data.success && data.data) {
         const userList = Array.isArray(data.data) ? data.data : data.data.users || [];
+        console.log('Setting users list:', userList.length, 'users');
         setUsers(userList);
+      } else {
+        console.warn('Unexpected API response format:', data);
       }
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -338,28 +376,84 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
   };
 
   // Handle role selection
-  const handleRoleChange = (roleId: string) => {
-    console.log('Role change triggered with ID:', roleId);
-    console.log('Available roles:', roles);
+  const handleRoleChange = (roleValue: string) => {
+    console.log('Role change triggered with value:', roleValue);
     
-    const selectedRole = roles.find(role => role._id === roleId);
-    console.log('Found role:', selectedRole);
+    // Map role values to their display names and permissions
+    const roleConfig: Record<string, { displayName: string; panel: string; permissions: Record<string, boolean> }> = {
+      'auditadmin': {
+        displayName: 'Audit Admin',
+        panel: 'audit',
+        permissions: {
+          'audit.read': true,
+          'audit.write': true,
+          'audit.delete': false,
+          'audit.manage': true
+        }
+      },
+      'admin': {
+        displayName: 'Admin',
+        panel: 'admin',
+        permissions: {
+          'admin.read': true,
+          'admin.write': true,
+          'admin.delete': true,
+          'admin.manage': true
+        }
+      },
+      'cfo': {
+        displayName: 'CFO',
+        panel: 'finance',
+        permissions: {
+          'finance.read': true,
+          'finance.write': true,
+          'finance.reports': true
+        }
+      },
+      'hod': {
+        displayName: 'HOD',
+        panel: 'department',
+        permissions: {
+          'department.read': true,
+          'department.write': true,
+          'department.manage': true
+        }
+      },
+      'staff': {
+        displayName: 'Staff',
+        panel: 'staff',
+        permissions: {
+          'staff.read': true,
+          'staff.write': false
+        }
+      },
+      'doctor': {
+        displayName: 'Doctor',
+        panel: 'doctor',
+        permissions: {
+          'doctor.read': true,
+          'doctor.write': true,
+          'doctor.patient': true
+        }
+      }
+    };
     
-    if (selectedRole) {
+    const config = roleConfig[roleValue];
+    if (config) {
       setEmployeeForm(prev => ({
         ...prev,
-        roleId,
-        role: selectedRole.name.toLowerCase(),
-        panel: selectedRole.name.toLowerCase(),
-        permissions: selectedRole.permissions
+        roleId: roleValue,
+        role: roleValue, // Store the database format value
+        panel: config.panel,
+        permissions: config.permissions
       }));
       console.log('Updated form role fields:', {
-        roleId,
-        role: selectedRole.name.toLowerCase(),
-        panel: selectedRole.name.toLowerCase()
+        roleId: roleValue,
+        role: roleValue,
+        panel: config.panel
       });
     } else {
-      console.error('Role not found with ID:', roleId);
+      console.error('Unknown role value:', roleValue);
     }
   };
 
@@ -511,22 +605,33 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
+    
+    // Get roleId as string
+    const roleIdStr = typeof user.roleId === 'string' 
+      ? user.roleId 
+      : user.roleId?._id || '';
+    
     setEmployeeForm({
-      name: user.name,
+      name: user.name || user.username || '',
       email: user.email,
       organizationId: user.organizationId || selectedEntity?.code || "",
       hospital: getHospitalId(user),
       department: getDepartmentId(user),
       ward: user.ward || "",
       role: user.role,
-      roleId: user.roleId || "",
-      panel: user.role,
+      roleId: roleIdStr,
+      panel: user.panel || user.role,
       parentUserId: user.parentUserId || user.parentUser?.id || "",
       permissions: user.permissions || {},
       joinedDate: user.joinedDate || "",
       contactNumber: user.contactNumber || ""
     });
     setIsEditUserOpen(true);
+  };
+
+  const handleViewUser = (user: User) => {
+    setViewingUser(user);
+    setIsViewUserOpen(true);
   };
 
   const handleUpdateUser = async () => {
@@ -610,53 +715,98 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
     <div className="flex-1 p-8 bg-[#F9FAFB] min-h-screen">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-gray-900 mb-2">User Management</h1>
-        <p className="text-gray-600">Manage user accounts and permissions across all hospitals</p>
+        <h1 className="text-gray-900 mb-2">
+          {userRoleFilter === 'audit' ? 'Audit User Management' : 'User Management'}
+        </h1>
+        <p className="text-gray-600">
+          {userRoleFilter === 'audit' 
+            ? 'Manage audit administrator accounts and permissions' 
+            : 'Manage user accounts and permissions across all hospitals'}
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-gray-600">Total Users</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-900">1,256</p>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-gray-600">Active Users</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-[#0EB57D]">1,189</p>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-gray-600">Inactive Users</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-[#F59E0B]">67</p>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-gray-600">New This Month</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-[#0F67FF]">48</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Stats Cards - Dynamic based on users data */}
+      {(() => {
+        // Filter users based on role filter
+        const filteredUsers = userRoleFilter === 'audit' 
+          ? users.filter(u => 
+              ['audit', 'audit-admin', 'audit_admin', 'auditadmin'].includes(
+                (u.role || '').toLowerCase()
+              )
+            )
+          : users;
+        
+        const totalUsers = filteredUsers.length;
+        const activeUsers = filteredUsers.filter(u => u.status?.toLowerCase() === 'active' || u.isOnline).length;
+        const inactiveUsers = filteredUsers.filter(u => u.status?.toLowerCase() === 'inactive' || (!u.status && !u.isOnline)).length;
+        
+        // Calculate new users this month (based on createdAt from MongoDB)
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const newThisMonth = filteredUsers.filter(u => {
+          // Check createdAt field (from MongoDB) or joinedDate
+          const userDate = u.createdAt ? new Date(u.createdAt) : 
+                          u.joinedDate ? new Date(u.joinedDate) : null;
+          return userDate && userDate >= startOfMonth;
+        }).length;
+        
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-gray-600">
+                  {userRoleFilter === 'audit' ? 'Total Audit Users' : 'Total Users'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-900">{totalUsers.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-gray-600">
+                  {userRoleFilter === 'audit' ? 'Active Audit Users' : 'Active Users'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-[#0EB57D]">{activeUsers.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-gray-600">
+                  {userRoleFilter === 'audit' ? 'Inactive Audit Users' : 'Inactive Users'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-[#F59E0B]">{inactiveUsers.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-gray-600">New This Month</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-[#0F67FF]">{newThisMonth.toLocaleString()}</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Main Content */}
       <Card className="border-0 shadow-md">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <CardTitle className="text-gray-900">All Users</CardTitle>
-              <CardDescription>Manage and monitor user accounts</CardDescription>
+              <CardTitle className="text-gray-900">
+                {userRoleFilter === 'audit' ? 'Audit Users' : 'All Users'}
+              </CardTitle>
+              <CardDescription>
+                {userRoleFilter === 'audit' 
+                  ? 'Manage and monitor audit administrator accounts' 
+                  : 'Manage and monitor user accounts'}
+              </CardDescription>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" className="flex items-center gap-2">
@@ -667,13 +817,19 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
                 <DialogTrigger asChild>
                   <Button className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC] hover:from-[#0B4FCC] hover:to-[#0F67FF]">
                     <Plus className="h-4 w-4 mr-2" />
-                    Add User
+                    {userRoleFilter === 'audit' ? 'Add Audit User' : 'Add User'}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Add New Employee</DialogTitle>
-                    <DialogDescription>Create a new employee account and assign permissions</DialogDescription>
+                    <DialogTitle>
+                      {userRoleFilter === 'audit' ? 'Add New Audit User' : 'Add New Employee'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {userRoleFilter === 'audit' 
+                        ? 'Create a new audit administrator account' 
+                        : 'Create a new employee account and assign permissions'}
+                    </DialogDescription>
                   </DialogHeader>
                   
                   {error && (
@@ -791,11 +947,20 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
-                          {roles.map((role) => (
-                            <SelectItem key={role._id} value={role._id}>
-                              {role.name}
-                            </SelectItem>
-                          ))}
+                          {userRoleFilter === 'audit' ? (
+                            // Audit mode: only show Audit Admin
+                            <SelectItem value="auditadmin">Audit Admin</SelectItem>
+                          ) : (
+                            // All available roles with display name and database value
+                            <>
+                              <SelectItem value="auditadmin">Audit Admin</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="cfo">CFO</SelectItem>
+                              <SelectItem value="hod">HOD</SelectItem>
+                              <SelectItem value="staff">Staff</SelectItem>
+                              <SelectItem value="doctor">Doctor</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -843,10 +1008,20 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="department-head">Department Head</SelectItem>
-                <SelectItem value="biomedical">Biomedical</SelectItem>
-                <SelectItem value="store-manager">Store Manager</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
+                {userRoleFilter === 'audit' ? (
+                  // Audit mode: only show audit-related roles
+                  <SelectItem value="auditadmin">Audit Admin</SelectItem>
+                ) : (
+                  // Regular mode: show all roles (database format values)
+                  <>
+                    <SelectItem value="auditadmin">Audit Admin</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="cfo">CFO</SelectItem>
+                    <SelectItem value="hod">HOD</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
+                    <SelectItem value="doctor">Doctor</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -887,7 +1062,7 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
               <TableBody>
                 {filteredUsers.map((user) => (
                   <TableRow key={user._id}>
-                    <TableCell>{user.name}</TableCell>
+                    <TableCell>{getUserName(user)}</TableCell>
                     <TableCell className="text-gray-600">{user.email}</TableCell>
                     <TableCell className="text-gray-600">{getHospitalName(user)}</TableCell>
                     <TableCell>
@@ -899,11 +1074,19 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
                     <TableCell>
                       <Badge variant={user.status?.toLowerCase() === "active" ? "default" : "secondary"} 
                              className={user.status?.toLowerCase() === "active" ? "bg-[#0EB57D] hover:bg-[#0EB57D]" : ""}>
-                        {user.status}
+                        {user.status || (user.isOnline ? 'Active' : 'Inactive')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleViewUser(user)}
+                          title="View User"
+                        >
+                          <Eye className="h-4 w-4 text-blue-600" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
@@ -1051,6 +1234,170 @@ export function UserManagement({ onNavigate, selectedEntity }: UserManagementPro
               disabled={loading}
             >
               {loading ? 'Updating...' : 'Update Employee'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View User Dialog */}
+      <Dialog open={isViewUserOpen} onOpenChange={(open: boolean) => { setIsViewUserOpen(open); if (!open) setViewingUser(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>View user credentials and information</DialogDescription>
+          </DialogHeader>
+          
+          {viewingUser && (
+            <div className="py-4 space-y-6">
+              {/* Basic Information */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-3">Basic Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-500 text-sm">Full Name</Label>
+                    <p className="font-medium">{getUserName(viewingUser)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Email Address</Label>
+                    <p className="font-medium">{viewingUser.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Username</Label>
+                    <p className="font-medium">{viewingUser.username || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Contact Number</Label>
+                    <p className="font-medium">{viewingUser.contactNumber || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Role & Organization */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-3">Role & Organization</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-500 text-sm">Role</Label>
+                    <p className="font-medium">
+                      <Badge variant="outline" className="bg-[#E8F0FF] text-[#0F67FF] border-[#0F67FF]/20 mt-1">
+                        {viewingUser.role}
+                      </Badge>
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Panel</Label>
+                    <p className="font-medium">{viewingUser.panel || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Organization ID</Label>
+                    <p className="font-medium">{viewingUser.organizationId || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Hospital</Label>
+                    <p className="font-medium">{getHospitalName(viewingUser) || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Department & Ward */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-3">Department & Location</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-500 text-sm">Department</Label>
+                    <p className="font-medium">
+                      {typeof viewingUser.department === 'string' 
+                        ? viewingUser.department 
+                        : viewingUser.department?.name || '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Ward</Label>
+                    <p className="font-medium">{viewingUser.ward || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Activity */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-3">Status & Activity</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-gray-500 text-sm">Status</Label>
+                    <p className="font-medium">
+                      <Badge 
+                        variant={viewingUser.status?.toLowerCase() === "active" ? "default" : "secondary"} 
+                        className={viewingUser.status?.toLowerCase() === "active" ? "bg-[#0EB57D] hover:bg-[#0EB57D] mt-1" : "mt-1"}
+                      >
+                        {viewingUser.status || (viewingUser.isOnline ? 'Active' : 'Inactive')}
+                      </Badge>
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Online Status</Label>
+                    <p className="font-medium">{viewingUser.isOnline ? '🟢 Online' : '⚪ Offline'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Joined Date</Label>
+                    <p className="font-medium">{viewingUser.joinedDate || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-gray-500 text-sm">Last Active</Label>
+                    <p className="font-medium">
+                      {viewingUser.lastActive 
+                        ? new Date(viewingUser.lastActive).toLocaleString() 
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Parent User */}
+              {viewingUser.parentUser && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-3">Parent User</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-500 text-sm">Name</Label>
+                      <p className="font-medium">{viewingUser.parentUser.name}</p>
+                    </div>
+                    <div>
+                      <Label className="text-gray-500 text-sm">Role</Label>
+                      <p className="font-medium">{viewingUser.parentUser.role}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Permissions */}
+              {viewingUser.permissions && Object.keys(viewingUser.permissions).length > 0 && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-3">Permissions</h3>
+                  <div className="space-y-2">
+                    {Object.entries(viewingUser.permissions).map(([key, value]) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">{key}</span>
+                        <Badge variant={value ? "default" : "secondary"} className={value ? "bg-green-500" : ""}>
+                          {value ? 'Yes' : 'No'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsViewUserOpen(false); setViewingUser(null); }}>Close</Button>
+            <Button 
+              onClick={() => { 
+                setIsViewUserOpen(false); 
+                if (viewingUser) handleEditUser(viewingUser); 
+              }} 
+              className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]"
+            >
+              Edit User
             </Button>
           </DialogFooter>
         </DialogContent>

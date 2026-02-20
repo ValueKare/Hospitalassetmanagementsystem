@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { useSuperAdminStore } from "../../store/useSuperAdminStore";
 
 
 // API configuration
@@ -218,6 +219,7 @@ interface DashboardSummaryResponse {
 
 interface DashboardSummary {
   totalAssets: number;
+  activeAssets: number;
   underMaintenance: number;
   amcDue: number;
   utilizationRate: number;
@@ -315,25 +317,44 @@ const auditStatusData = [
 ];
 
 export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDashboardProps) {
-  const [loading, setLoading] = useState(true);
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
-  const [hospitalInfo, setHospitalInfo] = useState<HospitalInfo | null>(null);
-  const [hospitalCount, setHospitalCount] = useState<number>(0);
-  const [entityHospitals, setEntityHospitals] = useState<any[]>([]);
-  const [selectedHospital, setSelectedHospital] = useState<any>(null);
-  const [dashboardData, setDashboardData] = useState<{
-    summary: DashboardSummary | null;
-    departmentData: TransformedDepartmentData[];
-    utilizationData: UtilizationData[];
-    costData: TransformedCostData[];
-    alerts: TransformedAlert[];
-  }>({
-    summary: null,
-    departmentData: [],
-    utilizationData: [],
-    costData: [],
-    alerts: []
-  });
+  // Use Zustand store for global state management
+  const {
+    loading,
+    totalHospitals,
+    entityHospitals,
+    selectedHospital,
+    selectedHospitalId,
+    hospitalInfo,
+    dashboardSummary,
+    departmentData,
+    utilizationData,
+    costData,
+    alerts,
+    setLoading,
+    setTotalHospitals,
+    setEntityHospitals,
+    setSelectedHospital,
+    setSelectedHospitalId,
+    setHospitalInfo,
+    updateDashboardData,
+    setSelectedEntity: setStoreEntity,
+  } = useSuperAdminStore();
+
+  // Create a dashboardData object for backward compatibility with existing code
+  const dashboardData = {
+    summary: dashboardSummary,
+    departmentData,
+    utilizationData,
+    costData,
+    alerts,
+  };
+
+  // Sync selectedEntity to store
+  useEffect(() => {
+    if (selectedEntity) {
+      setStoreEntity(selectedEntity);
+    }
+  }, [selectedEntity, setStoreEntity]);
 
   const fetchDashboardData = async () => {
     try {
@@ -366,7 +387,7 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
         // Set hospital count from entity hospitals or global count
         const hospitalsArray = hospitalsResponse?.hospitals || hospitalsResponse?.data || (Array.isArray(hospitalsResponse) ? hospitalsResponse : []);
         const count = hospitalsResponse?.count ?? hospitalsArray.length ?? 0;
-        setHospitalCount(count);
+        setTotalHospitals(count);
 
         // Store entity hospitals for dropdown
         if (hospitalsResponse?.hospitals) {
@@ -385,6 +406,7 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
         // Transform summary response to DashboardSummary format
         const summary: DashboardSummary | null = summaryResponse ? {
           totalAssets: summaryResponse.totalAssets,
+          activeAssets: summaryResponse.activeAssets,
           underMaintenance: summaryResponse.underMaintenance,
           amcDue: summaryResponse.amcDue,
           utilizationRate: summaryResponse.utilizationRate
@@ -439,12 +461,12 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
           alerts: transformedAlerts
         };
         
-        setDashboardData(finalData);
+        updateDashboardData(finalData);
 
       } catch (error) {
         console.error('Failed to fetch super admin dashboard data:', error);
         // Set empty data on error - no fallback mock data
-        setDashboardData({
+        updateDashboardData({
           summary: null,
           departmentData: [],
           utilizationData: [],
@@ -553,7 +575,7 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
       )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -562,7 +584,7 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-lg font-semibold text-gray-900">{hospitalCount}</p>
+            <p className="text-lg font-semibold text-gray-900">{totalHospitals}</p>
             <p className="text-xs text-[#0EB57D] mt-1">
               {selectedEntity ? `${selectedEntity.name} hospitals` : 'Registered hospitals'}
             </p>
@@ -590,7 +612,7 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.totalAssets?.toLocaleString() || '0'}</p>
+            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.activeAssets?.toLocaleString() || '0'}</p>
             <p className="text-xs text-[#0EB57D] mt-1">In operation</p>
           </CardContent>
         </Card>
@@ -605,32 +627,6 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
           <CardContent className="pt-0">
             <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.underMaintenance?.toLocaleString() || '0'}</p>
             <p className="text-xs text-gray-500 mt-1">Service required</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xs text-gray-600">AMC Due</CardTitle>
-              <ClipboardCheck className="h-4 w-4 text-[#EF4444]" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.amcDue?.toLocaleString() || '0'}</p>
-            <p className="text-xs text-gray-500 mt-1">Contract renewal</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xs text-gray-600">Utilization Rate</CardTitle>
-              <TrendingUp className="h-4 w-4 text-[#10B981]" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <p className="text-lg font-semibold text-gray-900">{dashboardData.summary?.utilizationRate || 0}%</p>
-            <p className="text-xs text-[#0EB57D] mt-1">Efficiency rate</p>
           </CardContent>
         </Card>
 

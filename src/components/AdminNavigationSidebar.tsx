@@ -100,12 +100,8 @@ export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, on
       try {
         const entityList = await fetchEntities();
         setEntities(entityList);
-        // Only auto-select if no entity is already selected from props
-        if (entityList.length > 0 && !selectedEntity && !localSelectedEntity) {
-          const firstEntity = entityList[0];
-          setLocalSelectedEntity(firstEntity);
-          onEntityChange?.(firstEntity);
-        }
+        // Don't auto-select - let user manually choose an entity
+        console.log('Available entities:', entityList.length);
       } catch (error) {
         console.error('Failed to load entities:', error);
       } finally {
