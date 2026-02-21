@@ -120,7 +120,11 @@ export default function App() {
   const [userPanel, setUserPanel] = useState<string>(""); // "admin" or "user"
   const [selectedAssetId, setSelectedAssetId] = useState<number | undefined>();
   const [selectedAuditId, setSelectedAuditId] = useState<string | undefined>();
-  const [selectedEntity, setSelectedEntity] = useState<any>(null);
+  const [selectedEntity, setSelectedEntity] = useState<any>(() => {
+    // Restore selected entity from localStorage on initial load
+    const savedEntity = localStorage.getItem('selectedEntity');
+    return savedEntity ? JSON.parse(savedEntity) : null;
+  });
   const [entityLoading, setEntityLoading] = useState(true);
 
 // Session validation function
@@ -211,7 +215,8 @@ const validateSession = async (accessToken: string) => {
               localStorage.removeItem('hospital');
               localStorage.removeItem('expiresIn');
               localStorage.removeItem('loginTime');
-              
+              localStorage.removeItem('selectedEntity');
+                          
               // Show toast about session termination
               toast.error('Your session has been terminated because you logged in from another device.');
             }
@@ -275,6 +280,7 @@ const validateSession = async (accessToken: string) => {
     localStorage.removeItem('hospital');
     localStorage.removeItem('expiresIn');
     localStorage.removeItem('loginTime');
+    localStorage.removeItem('selectedEntity');
     
     // Reset state
     setCurrentScreen("login");
@@ -289,6 +295,12 @@ const validateSession = async (accessToken: string) => {
   const handleEntityChange = (entity: any) => {
     setSelectedEntity(entity);
     setEntityLoading(false);
+    // Persist selected entity to localStorage
+    if (entity) {
+      localStorage.setItem('selectedEntity', JSON.stringify(entity));
+    } else {
+      localStorage.removeItem('selectedEntity');
+    }
   };
 
   // Fetch entities early in the app lifecycle
@@ -350,7 +362,8 @@ const validateSession = async (accessToken: string) => {
             localStorage.removeItem('hospital');
             localStorage.removeItem('expiresIn');
             localStorage.removeItem('loginTime');
-            
+            localStorage.removeItem('selectedEntity');
+                      
             // Reset state and redirect to login
             setCurrentScreen("login");
             setUserRole("");
@@ -358,7 +371,7 @@ const validateSession = async (accessToken: string) => {
             setSelectedAssetId(undefined);
             setSelectedEntity(null);
             setEntityLoading(true);
-            
+                      
             // Show toast about session termination
             toast.error('Your session has been terminated because you logged in from another device.');
           }

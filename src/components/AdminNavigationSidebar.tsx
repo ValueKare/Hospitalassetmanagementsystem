@@ -14,6 +14,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAssetStore } from "../store/useAssetStore";
 
 interface AdminNavigationSidebarProps {
   currentScreen: string;
@@ -86,6 +87,9 @@ export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, on
   const [localSelectedEntity, setLocalSelectedEntity] = useState<Entity | null>(selectedEntity || null);
   const [loading, setLoading] = useState(true);
   const menuItems = userRole === "superadmin" ? superAdminMenu : auditAdminMenu;
+  
+  // Get asset counts from Zustand store
+  const { metadata, hospitalSummaries } = useAssetStore();
 
   // Sync local state with prop changes
   useEffect(() => {
@@ -177,7 +181,7 @@ export function AdminNavigationSidebar({ currentScreen, userRole, onNavigate, on
             </Select>
             {selectedEntity && (
               <div className="text-xs text-gray-500 mt-1">
-                {selectedEntity.meta.totalAssets} assets • {selectedEntity.meta.totalBuildings} buildings
+                {metadata.totalAssets > 0 ? metadata.totalAssets : selectedEntity.meta.totalAssets} assets • {selectedEntity.meta.totalBuildings} buildings
               </div>
             )}
           </div>

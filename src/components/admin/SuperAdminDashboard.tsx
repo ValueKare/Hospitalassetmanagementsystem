@@ -669,17 +669,17 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                           <div>
                             <span className="text-gray-600">Hospital:</span>
-                            <p className="font-medium">{alert.details.hospitalName}</p>
-                            <p className="text-xs text-gray-500">{alert.details.hospitalLocation}</p>
+                            <p className="font-medium">{alert.details.hospitalName || 'N/A'}</p>
+                            <p className="text-xs text-gray-500">{alert.details.hospitalLocation || ''}</p>
                           </div>
                           <div>
                             <span className="text-gray-600">Location:</span>
-                            <p className="font-medium">{alert.details.buildingName}</p>
-                            <p className="text-xs text-gray-500">{alert.details.floorName} • {alert.details.departmentName}</p>
+                            <p className="font-medium">{alert.details.buildingName || 'N/A'}</p>
+                            <p className="text-xs text-gray-500">{alert.details.floorName || ''} • {alert.details.departmentName || ''}</p>
                           </div>
                           <div>
                             <span className="text-gray-600">Status:</span>
-                            <p className="font-medium capitalize">{alert.details.utilizationStatus.replace('_', ' ')}</p>
+                            <p className="font-medium capitalize">{(alert.details.utilizationStatus || 'unknown').replace('_', ' ')}</p>
                             {alert.details.daysToExpiry !== undefined && (
                               <p className="text-xs text-gray-500">
                                 {alert.details.daysToExpiry} days to expiry
@@ -688,11 +688,11 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
                           </div>
                           <div>
                             <span className="text-gray-600">Purchase Cost:</span>
-                            <p className="font-medium">₹{alert.details.purchaseCost.toLocaleString()}</p>
+                            <p className="font-medium">₹{(alert.details.purchaseCost || 0).toLocaleString()}</p>
                           </div>
                           <div>
                             <span className="text-gray-600">Maintenance Cost:</span>
-                            <p className="font-medium">₹{alert.details.maintenanceCost.toLocaleString()}</p>
+                            <p className="font-medium">₹{(alert.details.maintenanceCost || 0).toLocaleString()}</p>
                           </div>
                         </div>
                       )}
@@ -750,25 +750,34 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
             <CardDescription>Across all hospitals</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={dashboardData.departmentData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {dashboardData.departmentData.map((entry: TransformedDepartmentData, index: number) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {dashboardData.departmentData && dashboardData.departmentData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={dashboardData.departmentData.filter(d => d && d.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name || 'Unknown'}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {dashboardData.departmentData.filter(d => d && d.value > 0).map((entry: TransformedDepartmentData, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color || '#8884d8'} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [value || 0, name || 'Unknown']} 
+                    contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                No distribution data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -779,17 +788,26 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
             <CardDescription>Last 6 months overview</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardData.costData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="cost" fill="#0EB57D" name="Cost" />
-                <Bar dataKey="maintenance" fill="#F59E0B" name="Maintenance" />
-              </BarChart>
-            </ResponsiveContainer>
+            {dashboardData.costData && dashboardData.costData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={dashboardData.costData.filter(d => d && d.month)}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value: number) => [value || 0, 'Amount']} 
+                    contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                  />
+                  <Legend />
+                  <Bar dataKey="cost" fill="#0EB57D" name="Cost" />
+                  <Bar dataKey="maintenance" fill="#F59E0B" name="Maintenance" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-500">
+                No cost data available
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Badge } from "../ui/badge";
 import { Building2, Plus, Edit2, Trash2, MapPin, Layers, DollarSign } from "lucide-react";
 import { toast } from "sonner";
+import { useAssetStore } from "../../store/useAssetStore";
 
 // interface EntitySetupProps {
 //   onNavigate: (screen: string) => void;
@@ -214,6 +215,20 @@ interface DepartmentFormData {
 }
 
 export function EntitySetup() {
+  // Zustand asset store
+  const {
+    assets,
+    hospitalSummaries,
+    setAssets,
+    setLoading: setAssetsLoading,
+  } = useAssetStore();
+  
+  // DEBUG: Log store data
+  console.log('=== EntitySetup Store Data ===');
+  console.log('Total assets in store:', assets.length);
+  console.log('Hospital summaries:', Array.from(hospitalSummaries.entries()));
+  console.log('Sample assets (first 3):', assets.slice(0, 3).map(a => ({ id: a.id, asset_id: a.asset_id, hospitalId: a.hospitalId })));
+
   const [isAddHospitalOpen, setIsAddHospitalOpen] = useState(false);
   const [isAddBuildingOpen, setIsAddBuildingOpen] = useState(false);
   const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false);
@@ -694,10 +709,95 @@ export function EntitySetup() {
     }
   };
 
+  // Fetch all NBC assets into Zustand store - optimized with caching
+  const fetchHospitalAssetCounts = async () => {
+    // Skip if assets are already loaded in the store to prevent duplicate fetches
+    if (assets.length > 0) {
+      console.log('Assets already loaded in store, skipping fetch');
+      return;
+    }
+    
+    try {
+      setAssetsLoading(true);
+      const token = getAuthToken();
+      if (!token) {
+        console.error('No authentication token found for fetching assets');
+        return;
+      }
+
+      // Fetch NBC assets from MongoDB
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/all`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch NBC assets:', response.status);
+        return;
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // Map only essential fields to reduce memory usage
+        const mappedAssets = result.data.map((a: any) => ({
+          id: a._id || a.id || '',
+          asset_id: a.asset || a.asset_key || '',
+          asset_description: a.asset_description || '',
+          serial_number: a.barcode || a.sno || '',
+          model_number: a.asset_key || '',
+          location: a.business_area || '',
+          status: a.status || 'Active',
+          last_maintenance: a.dc_start || '',
+          class: a.class || '',
+          cost_centre: a.cost_centre || '',
+          quantity: a.quantity || 1,
+          bus_area: a.bus_A || null,
+          amount: a.amount ? String(a.amount) : null,
+          hospitalId: a.hospitalId || '',
+          hospitalName: a.hospitalId || '',
+        }));
+        
+        setAssets(mappedAssets);
+      }
+    } catch (err) {
+      console.error('Error fetching NBC asset counts:', err);
+    } finally {
+      setAssetsLoading(false);
+    }
+  };
+
+  // Helper function to get asset count for a hospital using Zustand store
+  const getHospitalAssetCount = (hospitalName: string, hospitalId: string): number => {
+    console.log('=== getHospitalAssetCount ===');
+    console.log('Hospital name:', hospitalName, 'ID:', hospitalId);
+    
+    // Use the hospitalSummaries from Zustand store - this is the single source of truth
+    const summary = hospitalSummaries.get(hospitalId);
+    console.log('Found summary:', summary);
+    if (summary) {
+      return summary.totalAssets;
+    }
+    
+    // Count assets with matching hospitalId OR assets with no hospitalId (legacy data)
+    const matchingAssets = assets.filter(a => {
+      // Match if hospitalId matches OR if hospitalId is null/empty (show for all hospitals)
+      const match = (a.hospitalId && (a.hospitalId === hospitalId || a.hospitalId === hospitalName)) ||
+                    (!a.hospitalId || a.hospitalId === '');
+      if (match && a.hospitalId) console.log('Matching asset:', a.asset_id, 'hospitalId:', a.hospitalId);
+      return match;
+    });
+    console.log('Matching assets count:', matchingAssets.length);
+    
+    return matchingAssets.length;
+  };
+
   // Load hospitals and entities on component mount
   useEffect(() => {
     fetchHospitals();
     fetchEntities();
+    fetchHospitalAssetCounts();
   }, []);
 
   // Handle hospital creation
@@ -2229,7 +2329,7 @@ export function EntitySetup() {
                         </TableCell>
                         <TableCell className="text-gray-600">{hospital.location}</TableCell>
                         <TableCell>{hospital.buildings}</TableCell>
-                        <TableCell>{hospital.totalAssets.toLocaleString()}</TableCell>
+                        <TableCell>{getHospitalAssetCount(hospital.hospitalName, hospital.hospitalId).toLocaleString()}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Button

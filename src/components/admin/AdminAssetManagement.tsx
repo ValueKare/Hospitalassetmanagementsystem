@@ -76,6 +76,8 @@ interface Asset {
   quantity: number;
   bus_area: string | null;
   amount: string | null;
+  hospitalId?: string;
+  hospitalName?: string;
 }
 
 /* ================= COMPONENT ================= */
@@ -103,7 +105,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
     updateAsset,
     deleteAsset: deleteAssetFromStore,
   } = useAssetStore();
-  
+   
   // Local UI state
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
@@ -111,6 +113,13 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
   const [entityHospitals, setEntityHospitals] = useState<any[]>([]);
   const [selectedHospital, setSelectedHospital] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // DEBUG: Log store data
+  console.log('=== AdminAssetManagement Store Data ===');
+  console.log('Total assets in store:', assets.length);
+  console.log('Selected hospital:', selectedHospital);
+  console.log('Selected hospital ID from store:', selectedHospitalId);
+  console.log('Sample assets (first 3):', assets.slice(0, 3).map(a => ({ id: a.id, asset_id: a.asset_id, hospitalId: a.hospitalId })));
 
   // View/Edit/Delete dialog states
   const [viewAsset, setViewAsset] = useState<Asset | null>(null);
@@ -149,7 +158,13 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
           setEntityHospitals(json.hospitals);
           // Auto-select first hospital if none selected
           if (json.hospitals.length > 0 && !selectedHospital) {
-            setSelectedHospital(json.hospitals[0]);
+            const firstHospital = json.hospitals[0];
+            setSelectedHospital(firstHospital);
+            setSelectedHospitalId(firstHospital.hospitalId || firstHospital._id);
+            // Fetch assets only if not already loaded
+            if (assets.length === 0) {
+              fetchAllAssets();
+            }
           }
         }
       } else {
@@ -165,6 +180,12 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
     const hospital = entityHospitals.find(h => (h.hospitalId || h._id) === hospitalId);
     if (hospital) {
       setSelectedHospital(hospital);
+      setSelectedHospitalId(hospitalId);
+      // Assets are already loaded, client-side filtering handles the rest
+      // Only fetch if assets haven't been loaded yet
+      if (assets.length === 0) {
+        fetchAllAssets();
+      }
     }
   };
 
@@ -179,10 +200,16 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
     return null;
   };
 
-  const fetchAssets = async (page: number = 1) => {
+  // Fetch NBC assets into the store (with caching to prevent duplicate fetches)
+  const fetchAllAssets = async (forceRefresh = false) => {
+    // Skip if assets are already loaded and not forcing refresh
+    if (!forceRefresh && assets.length > 0) {
+      console.log('Assets already in store, skipping fetch');
+      return;
+    }
+    
     try {
       setIsLoading(true);
-      console.log('fetchAssets called with page:', page);
       
       // Get authentication token from localStorage
       const token = localStorage.getItem('accessToken');
@@ -191,94 +218,36 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         return;
       }
       
-      // Build query parameters for pagination, search, and filters
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: pageSize.toString(),
-        search: searchQuery,
-        status: filterStatus === 'all' ? '' : filterStatus
-      });
-
-      console.log('Fetching from:', `${import.meta.env.VITE_API_URL}/api/mongo/assets/paginated?${params}`);
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/paginated?${params}`, {
+      // Fetch assets with a reasonable limit to prevent performance issues
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/all`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       const json = await res.json();
 
-      console.log('API response:', json);
-
       if (json.success) {
         const mapped: Asset[] = json.data.map((a: any) => ({
           id: a._id || a.id || '',
-          asset_id: a.asset || '',
+          asset_id: a.asset || a.asset_key || '',
           asset_description: a.asset_description || '',
-          serial_number: a.barcode || "",
-          model_number: a.asset_key || a.asset || "",
-          location: a.business_area || "",
-          status: a.status || "Active",
-          last_maintenance: a.dc_start || "",
-          class: a.class || "",
-          cost_centre: a.cost_centre || "",
+          serial_number: a.barcode || a.sno || '',
+          model_number: a.asset_key || '',
+          location: a.business_area || '',
+          status: a.status || 'Active',
+          last_maintenance: a.dc_start || '',
+          class: a.class || '',
+          cost_centre: a.cost_centre || '',
           quantity: a.quantity || 1,
           bus_area: a.bus_A || null,
-          amount: convertDecimal128(a.amount),
+          amount: a.amount ? String(a.amount) : null,
+          hospitalId: a.hospitalId || '',
+          hospitalName: a.hospitalId || '',
         }));
 
-        console.log('Setting state - totalPages:', json.pagination.totalPages, 'totalAssets:', json.pagination.totalItems, 'currentPage:', page);
+        // Update store with all assets - this triggers calculateMetadata() 
+        // which calculates hospital summaries automatically
         setAssets(mapped);
-        setTotalPages(json.pagination.totalPages);
-        setCurrentPage(page);
-        // Store hospital summary for dashboard integration
-        if (selectedHospital) {
-          setHospitalSummary(selectedHospital.hospitalId || selectedHospital._id, {
-            hospitalId: selectedHospital.hospitalId || selectedHospital._id,
-            hospitalName: selectedHospital.name,
-            totalAssets: json.pagination.totalItems,
-            activeAssets: mapped.filter((a: Asset) => a.status?.toLowerCase() === 'active').length,
-            maintenanceAssets: mapped.filter((a: Asset) => a.status?.toLowerCase().includes('maintenance')).length,
-            totalValue: mapped.reduce((sum: number, a: Asset) => sum + parseFloat(a.amount || '0'), 0),
-            lastUpdated: new Date()
-          });
-        }
-      } else {
-        console.log('Using fallback endpoint');
-        // Fallback to non-paginated endpoint if paginated endpoint doesn't exist
-        const fallbackRes = await fetch(`${import.meta.env.VITE_API_URL}/api/mongo/assets/all`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        const fallbackJson: ApiResponse = await fallbackRes.json();
-
-        const mapped: Asset[] = fallbackJson.data.map((a) => ({
-          id: a._id || a.id || '',
-          asset_id: a.asset || '',
-          asset_description: a.asset_description || '',
-          serial_number: a.barcode || "",
-          model_number: a.asset_key || a.asset || "",
-          location: a.business_area || "",
-          status: a.status || "Active",
-          last_maintenance: a.dc_start || "",
-          class: a.class || "",
-          cost_centre: a.cost_centre || "",
-          quantity: a.quantity || 1,
-          bus_area: a.bus_A || null,
-          amount: convertDecimal128(a.amount),
-        }));
-
-        // Client-side pagination for fallback
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const paginatedAssets = mapped.slice(startIndex, endIndex);
-        
-        const calculatedTotalPages = Math.ceil(mapped.length / pageSize);
-        console.log('Fallback - totalPages:', calculatedTotalPages, 'totalAssets:', mapped.length, 'currentPage:', page);
-        
-        setAssets(paginatedAssets);
-        setTotalPages(calculatedTotalPages);
-        setCurrentPage(page);
       }
     } catch (err) {
       console.error('Fetch error:', err);
@@ -288,21 +257,25 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
     }
   };
 
+  // Initial load - fetch hospitals when entity is available
   useEffect(() => {
-    fetchAssets();
-    fetchEntityHospitals();
-  }, []);
-
-  // Refetch hospitals when selectedEntity changes
-  useEffect(() => {
-    fetchEntityHospitals();
+    if (selectedEntity && selectedEntity.code) {
+      fetchEntityHospitals();
+    }
   }, [selectedEntity]);
+
+  // Fetch all assets when component mounts (only if not already loaded)
+  useEffect(() => {
+    if (assets.length === 0) {
+      fetchAllAssets();
+    }
+  }, []);
 
   // Debounced search effect
   useEffect(() => {
     const timer = setTimeout(() => {
       setCurrentPage(1); // Reset to first page when searching
-      fetchAssets(1);
+      // No need to refetch - client-side filtering handles search
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timer);
@@ -312,7 +285,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
   const handlePageChange = (page: number) => {
     console.log('handlePageChange called with:', page, 'totalPages:', totalPages);
     if (page >= 1 && page <= totalPages) {
-      fetchAssets(page);
+      setCurrentPage(page);
     } else {
       console.log('Page change blocked - invalid page number');
     }
@@ -370,7 +343,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       toast.success(`Asset ${editAsset.asset_id} updated successfully`);
       setIsEditOpen(false);
       setEditAsset(null);
-      fetchAssets(currentPage); // Refresh the list
+      fetchAllAssets(true); // Force refresh the list
     } catch (err: any) {
       toast.error(`Failed to update asset: ${err.message}`);
     }
@@ -401,7 +374,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
       toast.success(`Asset ${deleteAsset.asset_id} deleted successfully`);
       setIsDeleteOpen(false);
       setDeleteAsset(null);
-      fetchAssets(currentPage); // Refresh the list
+      fetchAllAssets(true); // Force refresh the list
     } catch (err: any) {
       toast.error(`Failed to delete asset: ${err.message}`);
     }
@@ -542,7 +515,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         // Reset and refresh
         setIsImportOpen(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
-        fetchAssets(); // Refresh the assets list
+        fetchAllAssets(true); // Force refresh the assets list to update store
       } else {
         toast.success(`Successfully uploaded ${result.inserted} assets to ${hospitalName}`, {
           duration: 3000
@@ -550,7 +523,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
         // Reset and refresh
         setIsImportOpen(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
-        fetchAssets(); // Refresh the assets list
+        fetchAllAssets(true); // Force refresh the assets list to update store
       }
       
     } catch (err: any) {
@@ -563,16 +536,46 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
 
   /* ================= FILTER ================= */
 
+  // Filter assets by hospital, search, and status
+  const targetHospitalId = selectedHospital?.hospitalId || selectedHospital?._id;
+  
+  // DEBUG: Log filtering
+  console.log('=== Asset Filtering ===');
+  console.log('Target hospital ID:', targetHospitalId);
+  console.log('Total assets before filter:', assets.length);
+  
   const filteredAssets = assets.filter((a) => {
+    // Filter by selected hospital
+    // If asset has hospitalId, only show if it matches selected hospital
+    // If asset has no hospitalId (null/empty), show for all hospitals (legacy data support)
+    const matchHospital = !targetHospitalId || 
+                          !a.hospitalId || 
+                          a.hospitalId === '' || 
+                          a.hospitalId === targetHospitalId;
+    
+    // Filter by search query
     const matchSearch =
       (a.asset_id?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
       (a.asset_description?.toLowerCase() || '').includes(searchQuery.toLowerCase());
+    
+    // Filter by status
     const matchStatus = filterStatus === "all" || a.status === filterStatus;
-    return matchSearch && matchStatus;
+    
+    return matchHospital && matchSearch && matchStatus;
   });
+  
+  // DEBUG: Log filtered results
+  console.log('Filtered assets count:', filteredAssets.length);
+  console.log('Sample filtered assets:', filteredAssets.slice(0, 3).map(a => ({ id: a.id, asset_id: a.asset_id, hospitalId: a.hospitalId })));
 
-  // Note: With server-side pagination, filtering is done on the server
-  // This client-side filtering is only for the current page data
+  // Client-side pagination
+  const paginatedAssets = filteredAssets.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+  
+  // Update total pages based on filtered results
+  const calculatedTotalPages = Math.ceil(filteredAssets.length / pageSize) || 1;
 
   /* ================= UI ================= */
 
@@ -766,7 +769,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
                       <TableCell colSpan={8}>Loading…</TableCell>
                     </TableRow>
                   ) : (
-                    filteredAssets.map((a) => (
+                    paginatedAssets.map((a) => (
                       <TableRow key={a.id}>
                         <TableCell>
                           <input
@@ -841,7 +844,7 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
               {/* Pagination Controls */}
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-gray-600">
-                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalAssets)} of {totalAssets} assets
+                  Showing {filteredAssets.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0} to {Math.min(currentPage * pageSize, filteredAssets.length)} of {filteredAssets.length} assets
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -853,13 +856,13 @@ export function AdminAssetManagement({ onNavigate, selectedEntity }: { onNavigat
                     Previous
                   </Button>
                   <span className="text-sm text-gray-600">
-                    Page {currentPage} of {totalPages}
+                    Page {currentPage} of {calculatedTotalPages}
                   </span>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
+                    disabled={currentPage === calculatedTotalPages}
                   >
                     Next
                   </Button>

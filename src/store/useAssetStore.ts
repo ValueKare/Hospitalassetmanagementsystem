@@ -241,6 +241,35 @@ export const useAssetStore = create<AssetState>((set, get) => ({
       })
       .slice(0, 10);
     
+    // Calculate hospital summaries from assets
+    const hospitalSummaries = new Map<string, HospitalAssetSummary>();
+    
+    assets.forEach((asset) => {
+      const hospitalId = asset.hospitalId || 'Unassigned';
+      const existing = hospitalSummaries.get(hospitalId);
+      
+      if (existing) {
+        existing.totalAssets += 1;
+        if (asset.status?.toLowerCase() === 'active') {
+          existing.activeAssets += 1;
+        }
+        if (asset.status?.toLowerCase().includes('maintenance')) {
+          existing.maintenanceAssets += 1;
+        }
+        existing.totalValue += parseFloat(asset.amount || '0') || 0;
+      } else {
+        hospitalSummaries.set(hospitalId, {
+          hospitalId,
+          hospitalName: asset.hospitalName || hospitalId,
+          totalAssets: 1,
+          activeAssets: asset.status?.toLowerCase() === 'active' ? 1 : 0,
+          maintenanceAssets: asset.status?.toLowerCase().includes('maintenance') ? 1 : 0,
+          totalValue: parseFloat(asset.amount || '0') || 0,
+          lastUpdated: new Date(),
+        });
+      }
+    });
+    
     set({
       metadata: {
         totalAssets: assets.length,
@@ -250,6 +279,7 @@ export const useAssetStore = create<AssetState>((set, get) => ({
         recentAssets,
         lastUpdated: new Date(),
       },
+      hospitalSummaries,
     });
   },
   
