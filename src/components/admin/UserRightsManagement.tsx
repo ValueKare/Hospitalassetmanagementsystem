@@ -3,17 +3,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { Switch } from "../ui/switch";
-import { Shield, Search, Save, RotateCcw } from "lucide-react";
+import { 
+  Shield, 
+  Search, 
+  Save, 
+  RotateCcw, 
+  CheckCircle2, 
+  XCircle, 
+  Lock,
+  Unlock,
+  Users,
+  Crown,
+  ChevronRight,
+  Key,
+  Eye,
+  EyeOff
+} from "lucide-react";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface UserRightsManagementProps {
   onNavigate: (screen: string) => void;
 }
 
-// API Response Types
 interface ApiPermission {
   [key: string]: boolean;
 }
@@ -51,7 +65,6 @@ interface UpdateRoleResponse {
   };
 }
 
-// Permission categories for UI organization
 const permissionCategories = [
   {
     key: "asset",
@@ -131,13 +144,14 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
   const [currentPermissions, setCurrentPermissions] = useState<ApiRolePermissions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
 
-  // Get auth token from localStorage
   const getAuthToken = () => {
     return localStorage.getItem('accessToken');
   };
 
-  // Fetch roles from API
   const fetchRoles = async () => {
     setIsLoading(true);
     setError(null);
@@ -168,7 +182,6 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
 
       setRoles(data.data);
       
-      // Select first role by default
       if (data.data.length > 0) {
         setSelectedRole(data.data[0]);
         setCurrentPermissions(data.data[0].permissions);
@@ -182,7 +195,6 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
     }
   };
 
-  // Load roles on component mount
   useEffect(() => {
     fetchRoles();
   }, []);
@@ -192,7 +204,25 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
     if (role) {
       setSelectedRole(role);
       setCurrentPermissions(role.permissions);
+      setHasChanges(false);
+      setExpandedCategories([]);
     }
+  };
+
+  const toggleCategory = (categoryKey: string) => {
+    setExpandedCategories(prev => 
+      prev.includes(categoryKey) 
+        ? prev.filter(k => k !== categoryKey)
+        : [...prev, categoryKey]
+    );
+  };
+
+  const expandAllCategories = () => {
+    setExpandedCategories(permissionCategories.map(c => c.key));
+  };
+
+  const collapseAllCategories = () => {
+    setExpandedCategories([]);
   };
 
   const handlePermissionToggle = (category: string, permission: string) => {
@@ -207,6 +237,33 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
     };
 
     setCurrentPermissions(updatedPermissions);
+    setHasChanges(true);
+  };
+
+  const enableAllPermissions = () => {
+    if (!currentPermissions) return;
+    const allEnabled = Object.keys(currentPermissions).reduce((acc, category) => {
+      acc[category as keyof ApiRolePermissions] = Object.keys(currentPermissions[category as keyof ApiRolePermissions]).reduce(
+        (permAcc, perm) => ({ ...permAcc, [perm]: true }), {}
+      );
+      return acc;
+    }, {} as ApiRolePermissions);
+    setCurrentPermissions(allEnabled);
+    setHasChanges(true);
+    toast.success("All permissions enabled!");
+  };
+
+  const disableAllPermissions = () => {
+    if (!currentPermissions) return;
+    const allDisabled = Object.keys(currentPermissions).reduce((acc, category) => {
+      acc[category as keyof ApiRolePermissions] = Object.keys(currentPermissions[category as keyof ApiRolePermissions]).reduce(
+        (permAcc, perm) => ({ ...permAcc, [perm]: false }), {}
+      );
+      return acc;
+    }, {} as ApiRolePermissions);
+    setCurrentPermissions(allDisabled);
+    setHasChanges(true);
+    toast.info("All permissions disabled");
   };
 
   const handleSavePermissions = async () => {
@@ -242,7 +299,6 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
         throw new Error(result.message || 'Failed to update role permissions');
       }
 
-      // Update the role in the local state with the updated data
       setRoles(prevRoles => 
         prevRoles.map(role => 
           role._id === selectedRole._id 
@@ -251,8 +307,8 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
         )
       );
 
-      // Update selected role with new permissions
       setSelectedRole(prev => prev ? { ...prev, permissions: result.data.permissions } : null);
+      setHasChanges(false);
 
       toast.success("Permissions updated successfully!", {
         description: `Role "${result.data.name}" has been updated`
@@ -268,31 +324,86 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
   const handleResetPermissions = () => {
     if (selectedRole) {
       setCurrentPermissions(selectedRole.permissions);
+      setHasChanges(false);
       toast.info("Permissions reset to default");
     }
   };
 
+  const filteredCategories = permissionCategories.filter(category => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return category.label.toLowerCase().includes(searchLower) ||
+      category.permissions.some(p => p.label.toLowerCase().includes(searchLower));
+  });
+
+  const getCategoryIcon = (categoryKey: string) => {
+    const icons: Record<string, React.ReactNode> = {
+      asset: <Key className="w-5 h-5" />,
+      audit: <Shield className="w-5 h-5" />,
+      maintenance: <Lock className="w-5 h-5" />,
+      user: <Users className="w-5 h-5" />,
+      approval: <CheckCircle2 className="w-5 h-5" />,
+      reports: <Search className="w-5 h-5" />,
+      system: <Crown className="w-5 h-5" />
+    };
+    return icons[categoryKey] || <Shield className="w-5 h-5" />;
+  };
+
   return (
-    <div className="flex-1 p-8 bg-[#F9FAFB] min-h-screen">
+    <div className="flex-1 p-8 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-gray-900 mb-2">User Rights Management</h1>
-        <p className="text-gray-600">Configure role-based permissions and access control</p>
-      </div>
+      <motion.div 
+        className="mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <div className="flex items-center gap-3 mb-2">
+          <motion.div 
+            className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center"
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 400 }}
+          >
+            <Shield className="w-5 h-5 text-white" />
+          </motion.div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">User Rights Management</h1>
+            <p className="text-gray-500">Configure role-based permissions and access control</p>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Role Selector Card */}
-      <Card className="border-0 shadow-md mb-6">
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-gray-900">Select Role to Configure</CardTitle>
-          <CardDescription>Choose a role to view and modify its permissions</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Crown className="w-5 h-5 text-amber-500" />
+                Select Role to Configure
+              </CardTitle>
+              <CardDescription>Choose a role to view and modify its permissions</CardDescription>
+            </div>
+            {hasChanges && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full">
+                <div className="w-2 h-2 bg-amber-500 rounded-full" />
+                <span className="text-sm text-amber-700 font-medium">Unsaved Changes</span>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <Shield className="h-8 w-8 text-[#0F67FF]" />
+            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Shield className="h-5 w-5 text-blue-600" />
+            </div>
             {isLoading ? (
               <div className="text-gray-600">Loading roles...</div>
             ) : error ? (
-              <div className="text-red-600">Error: {error}</div>
+              <div className="text-red-600 flex items-center gap-2">
+                <XCircle className="w-5 h-5" />
+                Error: {error}
+              </div>
             ) : (
               <Select 
                 value={selectedRole?._id || ""} 
@@ -302,12 +413,23 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
                 <SelectTrigger className="w-full md:w-96">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="w-96">
                   {roles.map((role) => (
                     <SelectItem key={role._id} value={role._id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{role.name}</span>
-                        <span className="text-sm text-gray-500">{role.description}</span>
+                      <div className="flex items-center gap-3 py-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          role.isSystemRole ? "bg-amber-500" : "bg-blue-500"
+                        }`}>
+                          {role.isSystemRole ? (
+                            <Crown className="w-4 h-4 text-white" />
+                          ) : (
+                            <Users className="w-4 h-4 text-white" />
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{role.name}</span>
+                          <span className="text-sm text-gray-500">{role.description}</span>
+                        </div>
                       </div>
                     </SelectItem>
                   ))}
@@ -321,26 +443,71 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
                 {selectedRole.isSystemRole ? "System Role" : "Custom Role"}
               </Badge>
               <Badge variant="outline">{selectedRole.roleType}</Badge>
+              <div className="flex items-center gap-1 text-sm text-gray-500 ml-2">
+                <Key className="w-4 h-4" />
+                <span>
+                  {Object.values(currentPermissions || {}).reduce((acc, cat) => 
+                    acc + Object.values(cat).filter(Boolean).length, 0
+                  )} permissions enabled
+                </span>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Search & Bulk Actions */}
+      {currentPermissions && (
+        <Card className="mb-6">
+          <CardContent className="py-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search permissions..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={expandAllCategories}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Expand All
+                </Button>
+                <Button variant="outline" size="sm" onClick={collapseAllCategories}>
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  Collapse All
+                </Button>
+                <Button variant="outline" size="sm" onClick={enableAllPermissions} className="text-green-600">
+                  <Unlock className="h-4 w-4 mr-2" />
+                  Enable All
+                </Button>
+                <Button variant="outline" size="sm" onClick={disableAllPermissions} className="text-red-600">
+                  <Lock className="h-4 w-4 mr-2" />
+                  Disable All
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Permissions Grid */}
       {currentPermissions && (
-        <Card className="border-0 shadow-md">
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-gray-900">Permissions Matrix</CardTitle>
-                <CardDescription>Green = Allowed, Red = Restricted</CardDescription>
+                <CardTitle>Permissions Matrix</CardTitle>
+                <CardDescription>Toggle permissions to grant or restrict access</CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleResetPermissions}>
                   <RotateCcw className="h-4 w-4 mr-2" />
                   Reset
                 </Button>
-                <Button onClick={handleSavePermissions} className="bg-gradient-to-r from-[#0F67FF] to-[#0B4FCC]">
+                <Button onClick={handleSavePermissions}>
                   <Save className="h-4 w-4 mr-2" />
                   Save Changes
                 </Button>
@@ -348,38 +515,91 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {permissionCategories.map((category) => (
-                <div key={category.key} className="border rounded-lg p-6">
-                  <h3 className="text-gray-900 mb-4">{category.label}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {category.permissions.map((permission) => {
-                      const isAllowed = currentPermissions[category.key as keyof ApiRolePermissions]?.[permission.key] || false;
-                      return (
-                        <div
-                          key={`${category.key}-${permission.key}`}
-                          className={`flex items-center justify-between p-4 rounded-lg border-2 transition-colors ${
-                            isAllowed
-                              ? "bg-green-50 border-green-200"
-                              : "bg-red-50 border-red-200"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${
-                              isAllowed ? "bg-green-500" : "bg-red-500"
-                            }`} />
-                            <span className="text-gray-900">{permission.label}</span>
-                          </div>
-                          <Switch
-                            checked={isAllowed}
-                            onCheckedChange={() => handlePermissionToggle(category.key, permission.key)}
-                          />
+            <div className="space-y-4">
+              {filteredCategories.map((category, index) => {
+                const isExpanded = expandedCategories.includes(category.key);
+                const enabledCount = category.permissions.filter(
+                  p => currentPermissions[category.key as keyof ApiRolePermissions]?.[p.key]
+                ).length;
+                const totalCount = category.permissions.length;
+                
+                return (
+                  <div 
+                    key={category.key} 
+                    className="border rounded-lg overflow-hidden bg-white"
+                  >
+                    <div 
+                      className="p-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between"
+                      onClick={() => toggleCategory(category.key)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600">
+                          {getCategoryIcon(category.key)}
                         </div>
-                      );
-                    })}
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{category.label}</h3>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <span>{enabledCount}/{totalCount} permissions</span>
+                            {enabledCount === totalCount && (
+                              <span className="text-green-600 flex items-center gap-1">
+                                <CheckCircle2 className="w-4 h-4" />
+                                Complete
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant={enabledCount === totalCount ? "default" : "secondary"}>
+                          {enabledCount === 0 ? "No Access" : enabledCount === totalCount ? "Full Access" : "Partial"}
+                        </Badge>
+                        <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t px-4 py-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {category.permissions.map((permission) => {
+                            const isAllowed = currentPermissions[category.key as keyof ApiRolePermissions]?.[permission.key] || false;
+                            
+                            return (
+                              <div
+                                key={`${category.key}-${permission.key}`}
+                                onClick={() => handlePermissionToggle(category.key, permission.key)}
+                                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-sm ${
+                                  isAllowed
+                                    ? "bg-green-50 border-green-200 hover:bg-green-100"
+                                    : "bg-red-50 border-red-200 hover:bg-red-100"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                    isAllowed ? "bg-green-500" : "bg-red-500"
+                                  }`}>
+                                    {isAllowed ? (
+                                      <Unlock className="w-4 h-4 text-white" />
+                                    ) : (
+                                      <Lock className="w-4 h-4 text-white" />
+                                    )}
+                                  </div>
+                                  <span className={`font-medium ${isAllowed ? "text-green-900" : "text-red-900"}`}>
+                                    {permission.label}
+                                  </span>
+                                </div>
+                                <Switch
+                                  checked={isAllowed}
+                                  onCheckedChange={() => handlePermissionToggle(category.key, permission.key)}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -387,35 +607,48 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
 
       {/* Permission Summary */}
       {currentPermissions && (
-        <Card className="border-0 shadow-md mt-6">
+        <div>
+        <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="text-gray-900">Permission Summary</CardTitle>
+            <CardTitle>Permission Summary</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <p className="text-gray-600">Allowed</p>
-                <p className="text-green-600">
+                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-gray-600 text-sm">Allowed</p>
+                <p className="text-2xl font-bold text-green-600">
                   {Object.values(currentPermissions).reduce((acc, category) => 
                     acc + Object.values(category).filter(v => v).length, 0
                   )}
                 </p>
               </div>
               <div className="text-center p-4 bg-red-50 rounded-lg">
-                <p className="text-gray-600">Restricted</p>
-                <p className="text-red-600">
+                <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <XCircle className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-gray-600 text-sm">Restricted</p>
+                <p className="text-2xl font-bold text-red-600">
                   {Object.values(currentPermissions).reduce((acc, category) => 
                     acc + Object.values(category).filter(v => !v).length, 0
                   )}
                 </p>
               </div>
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-gray-600">Categories</p>
-                <p className="text-blue-600">{Object.keys(currentPermissions).length}</p>
+                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-gray-600 text-sm">Categories</p>
+                <p className="text-2xl font-bold text-blue-600">{Object.keys(currentPermissions).length}</p>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <p className="text-gray-600">Total Permissions</p>
-                <p className="text-purple-600">
+                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <Key className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-gray-600 text-sm">Total Permissions</p>
+                <p className="text-2xl font-bold text-purple-600">
                   {Object.values(currentPermissions).reduce((acc, category) => 
                     acc + Object.keys(category).length, 0
                   )}
@@ -424,6 +657,7 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
             </div>
           </CardContent>
         </Card>
+        </div>
       )}
     </div>
   );
