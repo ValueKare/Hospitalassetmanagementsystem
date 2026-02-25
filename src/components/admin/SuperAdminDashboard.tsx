@@ -353,7 +353,7 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
   const {
     loading,
     totalHospitals,
-    entityHospitals,
+    // entityHospitals,
     selectedHospital,
     selectedHospitalId,
     hospitalInfo,
