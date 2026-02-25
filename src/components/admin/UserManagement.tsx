@@ -577,6 +577,14 @@ export function UserManagement({ selectedEntity, userRoleFilter }: UserManagemen
     }
   };
 
+  // Reset filters when userRoleFilter changes (switching between User Management and Audit Users)
+  useEffect(() => {
+    setSearchTerm("");
+    setFilterRole("all");
+    setFilterStatus("all");
+    setUsers([]); // Clear users to prevent showing stale data
+  }, [userRoleFilter]);
+
   // Load initial data when component mounts or entity changes
   useEffect(() => {
     fetchRoles();
@@ -586,7 +594,7 @@ export function UserManagement({ selectedEntity, userRoleFilter }: UserManagemen
       setEmployeeForm(prev => ({ ...prev, organizationId: selectedEntity.code }));
       fetchHospitals(selectedEntity.code);
     }
-  }, [selectedEntity]);
+  }, [selectedEntity, userRoleFilter]);
 
   // Fetch departments when edit dialog opens and hospital is already selected
   useEffect(() => {

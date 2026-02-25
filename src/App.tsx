@@ -398,9 +398,9 @@ const validateSession = async (accessToken: string) => {
       case "dashboard":
         return renderAdminDashboard();
       case "user-management":
-        return <UserManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
+        return <UserManagement key="user-management" onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
       case "audit-users":
-        return <UserManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} userRoleFilter="audit" />;
+        return <UserManagement key="audit-users" onNavigate={handleNavigate} selectedEntity={selectedEntity} userRoleFilter="audit" />;
       case "user-rights":
         return <UserRightsManagement onNavigate={handleNavigate} />;
       case "entity-setup":
