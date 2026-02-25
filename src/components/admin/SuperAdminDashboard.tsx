@@ -197,21 +197,21 @@ interface SuperAdminDashboardProps {
   selectedEntity?: any;
 }
 
-// TypeScript interfaces for API responses
-interface EntityHospitalsResponse {
-  success: boolean;
-  count: number;
-  scope: string;
-  entityCode: string;
-  entityName: string;
-  hospitals: Array<{
-    _id: string;
-    hospitalId?: string;
-    name: string;
-    location: string;
-    contactEmail: string;
-  }>;
-}
+// // TypeScript interfaces for API responses
+// interface EntityHospitalsResponse {
+//   success: boolean;
+//   count: number;
+//   scope: string;
+//   entityCode: string;
+//   entityName: string;
+//   hospitals: Array<{
+//     _id: string;
+//     hospitalId?: string;
+//     name: string;
+//     location: string;
+//     contactEmail: string;
+//   }>;
+// }
 
 interface HospitalInfo {
   _id: string;
@@ -254,10 +254,10 @@ interface TransformedDepartmentData {
   color: string;
 }
 
-interface UtilizationData {
-  department: string;
-  utilization: number;
-}
+// interface UtilizationData {
+//   department: string;
+//   utilization: number;
+// }
 
 interface CostData {
   month: number;
@@ -309,20 +309,20 @@ interface TransformedAlert {
 // Month mapping for cost trends
 const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// Colors for departments
-const departmentColors = ["#0F67FF", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4", "#84CC16", "#F97316"];
+// // Colors for departments
+// const departmentColors = ["#0F67FF", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4", "#84CC16", "#F97316"];
 
 // Asset category colors
 const assetCategoryColors = ["#0F67FF", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444"];
 
-const maintenanceTrendData = [
-  { month: "Jan", completed: 65, pending: 28, overdue: 7 },
-  { month: "Feb", completed: 72, pending: 24, overdue: 4 },
-  { month: "Mar", completed: 68, pending: 30, overdue: 5 },
-  { month: "Apr", completed: 85, pending: 22, overdue: 3 },
-  { month: "May", completed: 90, pending: 20, overdue: 2 },
-  { month: "Jun", completed: 95, pending: 18, overdue: 2 },
-];
+// const maintenanceTrendData = [
+//   { month: "Jan", completed: 65, pending: 28, overdue: 7 },
+//   { month: "Feb", completed: 72, pending: 24, overdue: 4 },
+//   { month: "Mar", completed: 68, pending: 30, overdue: 5 },
+//   { month: "Apr", completed: 85, pending: 22, overdue: 3 },
+//   { month: "May", completed: 90, pending: 20, overdue: 2 },
+//   { month: "Jun", completed: 95, pending: 18, overdue: 2 },
+// ];
 
 interface ActiveAudit {
   _id: string;
@@ -544,13 +544,13 @@ export function SuperAdminDashboard({ onNavigate, selectedEntity }: SuperAdminDa
     }
   }, [selectedHospital]);
 
-  const handleHospitalChange = (hospitalId: string) => {
-    const hospital = entityHospitals.find(h => (h.hospitalId || h._id) === hospitalId);
-    if (hospital) {
-      setSelectedHospital(hospital);
-      setSelectedHospitalId(hospital.hospitalId || hospital._id);
-    }
-  };
+  // const handleHospitalChange = (hospitalId: string) => {
+  //   const hospital = entityHospitals.find(h => (h.hospitalId || h._id) === hospitalId);
+  //   if (hospital) {
+  //     setSelectedHospital(hospital);
+  //     setSelectedHospitalId(hospital.hospitalId || hospital._id);
+  //   }
+  // };
 
   return (
     <div className="flex-1 p-8 bg-[#F9FAFB] min-h-screen">
