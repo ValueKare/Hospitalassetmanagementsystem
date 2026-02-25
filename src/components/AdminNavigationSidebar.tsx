@@ -51,7 +51,7 @@ const superAdminMenu = [
   { id: "user-rights", label: "User Rights", icon: Shield },
   { id: "entity-setup", label: "Entity Setup", icon: Building },
   { id: "admin-assets", label: "Asset Management", icon: Package },
-  { id: "audit-list", label: "Audit List", icon: ClipboardCheck },
+  { id: "audit-management", label: "Audit Management", icon: ClipboardCheck },
   { id: "audit-controller", label: "Audit Controller", icon: ClipboardCheck },
   { id: "admin-reports", label: "Reports", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },

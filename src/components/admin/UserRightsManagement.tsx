@@ -5,13 +5,13 @@ import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Badge } from "../ui/badge";
 import { Switch } from "../ui/switch";
-import { 
-  Shield, 
-  Search, 
-  Save, 
-  RotateCcw, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Shield,
+  Search,
+  Save,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
   Lock,
   Unlock,
   Users,
@@ -22,7 +22,6 @@ import {
   EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 
 interface UserRightsManagementProps {
   onNavigate: (screen: string) => void;
@@ -138,6 +137,7 @@ const permissionCategories = [
   }
 ];
 
+//@ts-ignore
 export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) {
   const [roles, setRoles] = useState<ApiRole[]>([]);
   const [selectedRole, setSelectedRole] = useState<ApiRole | null>(null);
@@ -155,7 +155,7 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
   const fetchRoles = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const token = getAuthToken();
       if (!token) {
@@ -175,13 +175,13 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
       }
 
       const data: RolesApiResponse = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.data ? 'API returned unsuccessful response' : 'Invalid response format');
       }
 
       setRoles(data.data);
-      
+
       if (data.data.length > 0) {
         setSelectedRole(data.data[0]);
         setCurrentPermissions(data.data[0].permissions);
@@ -210,8 +210,8 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
   };
 
   const toggleCategory = (categoryKey: string) => {
-    setExpandedCategories(prev => 
-      prev.includes(categoryKey) 
+    setExpandedCategories(prev =>
+      prev.includes(categoryKey)
         ? prev.filter(k => k !== categoryKey)
         : [...prev, categoryKey]
     );
@@ -294,14 +294,14 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
       }
 
       const result: UpdateRoleResponse = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Failed to update role permissions');
       }
 
-      setRoles(prevRoles => 
-        prevRoles.map(role => 
-          role._id === selectedRole._id 
+      setRoles(prevRoles =>
+        prevRoles.map(role =>
+          role._id === selectedRole._id
             ? { ...role, permissions: result.data.permissions }
             : role
         )
@@ -352,26 +352,10 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
   return (
     <div className="flex-1 p-8 bg-gray-50 min-h-screen">
       {/* Header */}
-      <motion.div 
-        className="mb-8"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <div className="flex items-center gap-3 mb-2">
-          <motion.div 
-            className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center"
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 400 }}
-          >
-            <Shield className="w-5 h-5 text-white" />
-          </motion.div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">User Rights Management</h1>
-            <p className="text-gray-500">Configure role-based permissions and access control</p>
-          </div>
-        </div>
-      </motion.div>
+      <div className="mb-8">
+        <h1 className="text-gray-900 mb-2">User Rights Management</h1>
+        <p className="text-gray-500">Configure role-based permissions and access control</p>
+      </div>
 
       {/* Role Selector Card */}
       <Card className="mb-6">
@@ -405,25 +389,23 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
                 Error: {error}
               </div>
             ) : (
-              <Select 
-                value={selectedRole?._id || ""} 
+              <Select
+                value={selectedRole?._id || ""}
                 onValueChange={handleRoleChange}
                 disabled={roles.length === 0}
               >
                 <SelectTrigger className="w-full md:w-96">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
-                <SelectContent className="w-96">
+                <SelectContent className="w-[400px]">
                   {roles.map((role) => (
-                    <SelectItem key={role._id} value={role._id}>
-                      <div className="flex items-center gap-3 py-2">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          role.isSystemRole ? "bg-amber-500" : "bg-blue-500"
-                        }`}>
+                    <SelectItem key={role._id} value={role._id} className="p-4">
+                      <div className="flex items-center">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center`}>
                           {role.isSystemRole ? (
-                            <Crown className="w-4 h-4 text-white" />
+                            <Crown />
                           ) : (
-                            <Users className="w-4 h-4 text-white" />
+                            <Users />
                           )}
                         </div>
                         <div className="flex flex-col">
@@ -446,7 +428,7 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
               <div className="flex items-center gap-1 text-sm text-gray-500 ml-2">
                 <Key className="w-4 h-4" />
                 <span>
-                  {Object.values(currentPermissions || {}).reduce((acc, cat) => 
+                  {Object.values(currentPermissions || {}).reduce((acc, cat) =>
                     acc + Object.values(cat).filter(Boolean).length, 0
                   )} permissions enabled
                 </span>
@@ -516,19 +498,19 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {filteredCategories.map((category, index) => {
+              {filteredCategories.map((category) => {
                 const isExpanded = expandedCategories.includes(category.key);
                 const enabledCount = category.permissions.filter(
                   p => currentPermissions[category.key as keyof ApiRolePermissions]?.[p.key]
                 ).length;
                 const totalCount = category.permissions.length;
-                
+
                 return (
-                  <div 
-                    key={category.key} 
+                  <div
+                    key={category.key}
                     className="border rounded-lg overflow-hidden bg-white"
                   >
-                    <div 
+                    <div
                       className="p-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between"
                       onClick={() => toggleCategory(category.key)}
                     >
@@ -562,21 +544,19 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {category.permissions.map((permission) => {
                             const isAllowed = currentPermissions[category.key as keyof ApiRolePermissions]?.[permission.key] || false;
-                            
+
                             return (
                               <div
                                 key={`${category.key}-${permission.key}`}
                                 onClick={() => handlePermissionToggle(category.key, permission.key)}
-                                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-sm ${
-                                  isAllowed
-                                    ? "bg-green-50 border-green-200 hover:bg-green-100"
-                                    : "bg-red-50 border-red-200 hover:bg-red-100"
-                                }`}
+                                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-sm ${isAllowed
+                                  ? "bg-green-50 border-green-200 hover:bg-green-100"
+                                  : "bg-red-50 border-red-200 hover:bg-red-100"
+                                  }`}
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                    isAllowed ? "bg-green-500" : "bg-red-500"
-                                  }`}>
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isAllowed ? "bg-green-500" : "bg-red-500"
+                                    }`}>
                                     {isAllowed ? (
                                       <Unlock className="w-4 h-4 text-white" />
                                     ) : (
@@ -608,55 +588,55 @@ export function UserRightsManagement({ onNavigate }: UserRightsManagementProps) 
       {/* Permission Summary */}
       {currentPermissions && (
         <div>
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Permission Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <CheckCircle2 className="w-5 h-5 text-white" />
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Permission Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <CheckCircle2 className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-gray-600 text-sm">Allowed</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {Object.values(currentPermissions).reduce((acc, category) =>
+                      acc + Object.values(category).filter(v => v).length, 0
+                    )}
+                  </p>
                 </div>
-                <p className="text-gray-600 text-sm">Allowed</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {Object.values(currentPermissions).reduce((acc, category) => 
-                    acc + Object.values(category).filter(v => v).length, 0
-                  )}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-red-50 rounded-lg">
-                <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <XCircle className="w-5 h-5 text-white" />
+                <div className="text-center p-4 bg-red-50 rounded-lg">
+                  <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <XCircle className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-gray-600 text-sm">Restricted</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {Object.values(currentPermissions).reduce((acc, category) =>
+                      acc + Object.values(category).filter(v => !v).length, 0
+                    )}
+                  </p>
                 </div>
-                <p className="text-gray-600 text-sm">Restricted</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {Object.values(currentPermissions).reduce((acc, category) => 
-                    acc + Object.values(category).filter(v => !v).length, 0
-                  )}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Shield className="w-5 h-5 text-white" />
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-gray-600 text-sm">Categories</p>
+                  <p className="text-2xl font-bold text-blue-600">{Object.keys(currentPermissions).length}</p>
                 </div>
-                <p className="text-gray-600 text-sm">Categories</p>
-                <p className="text-2xl font-bold text-blue-600">{Object.keys(currentPermissions).length}</p>
-              </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Key className="w-5 h-5 text-white" />
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <Key className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-gray-600 text-sm">Total Permissions</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {Object.values(currentPermissions).reduce((acc, category) =>
+                      acc + Object.keys(category).length, 0
+                    )}
+                  </p>
                 </div>
-                <p className="text-gray-600 text-sm">Total Permissions</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {Object.values(currentPermissions).reduce((acc, category) => 
-                    acc + Object.keys(category).length, 0
-                  )}
-                </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

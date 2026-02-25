@@ -404,14 +404,13 @@ const validateSession = async (accessToken: string) => {
       case "user-rights":
         return <UserRightsManagement onNavigate={handleNavigate} />;
       case "entity-setup":
-        //@ts-ignore
         return <EntitySetup onNavigate={handleNavigate} />;
       case "admin-assets":
         return <AdminAssetManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
       case "audit-management":
-        return <AuditManagement onNavigate={handleNavigate} />;
+        return <AuditManagement onNavigate={handleNavigate} selectedEntity={selectedEntity} />;
       case "audit-controller":
-        return <AuditController />;
+        return <AuditController onNavigate={handleNavigate} />;
       case "admin-reports":
         return <Reports onNavigate={handleNavigate} />;
       case "settings":
@@ -463,7 +462,7 @@ const validateSession = async (accessToken: string) => {
       case "dashboard":
         console.log('Debug - dashboard case triggered');
         // Show the same dashboard that appears after login
-        if (userRole === 'level1_user') {
+        if (userRole === 'staff') {
           console.log('Debug - level1_user condition met');
           // Get actual user data from localStorage
           console.log('Debug - localStorage keys:', Object.keys(localStorage));
@@ -502,7 +501,12 @@ const validateSession = async (accessToken: string) => {
       case "settings":
         return <Settings onNavigate={handleNavigate} userRole={userRole} />;
       case "create-request":
-        return <AssetRequestForm onNavigate={handleNavigate} userDepartment="Department" userHospital="Hospital" />;
+        const requestUserData = JSON.parse(localStorage.getItem('user') || '{}');
+        return <AssetRequestForm 
+          onNavigate={handleNavigate} 
+          userDepartment={requestUserData.department || requestUserData.departmentName || "Department"} 
+          userHospital={requestUserData.hospitalName || requestUserData.hospital || "Hospital"} 
+        />;
       // Workflow Screens
       case "level1_user":
         const userData = JSON.parse(localStorage.getItem('user') || '{}');

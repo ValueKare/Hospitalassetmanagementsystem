@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
-import { Search, Plus, Edit2, Trash2, UserPlus, Download, Eye } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, Download, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserManagementProps {
@@ -118,7 +118,8 @@ const getDepartmentId = (user: User): string => {
 const getUserName = (user: User): string => {
   return user.name || user.username || 'Unknown';
 };
-export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: UserManagementProps) {
+
+export function UserManagement({ selectedEntity, userRoleFilter }: UserManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -275,12 +276,19 @@ export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: U
   };
 
   // Fetch departments based on selected hospital
-  const fetchDepartments = async (organizationId: string, hospitalId: string) => {
+  const fetchDepartments = async (_organizationId: string, hospitalId: string) => {
     try {
       const token = getAuthToken();
       if (!token) {
         throw new Error('No authentication token found');
       }
+
+      if (!hospitalId) {
+        setDepartments([]);
+        return;
+      }
+
+      console.log('Fetching departments for hospital:', hospitalId);
 
       // Fetch departments for the specific hospital
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/entity/api/v1/hospitals/${hospitalId}/departments`, {
@@ -294,6 +302,7 @@ export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: U
       let data;
       if (response.ok) {
         data = await response.json();
+        console.log('Departments API response:', data);
         if (data.success && data.data?.departments) {
           setDepartments(data.data.departments);
         } else if (data.departments) {
@@ -301,15 +310,21 @@ export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: U
           setDepartments(data.departments);
         } else {
           console.warn('Unexpected departments response structure:', data);
+          setDepartments([]);
         }
       } else {
         console.warn('Failed to fetch departments, status:', response.status);
-        data = await response.json();
-        console.warn('Departments API error response:', data);
+        try {
+          data = await response.json();
+          console.warn('Departments API error response:', data);
+        } catch (e) {
+          console.warn('Could not parse error response');
+        }
+        setDepartments([]);
       }
     } catch (err) {
       console.error('Error fetching departments:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load departments');
+      setDepartments([]);
     }
   };
 
@@ -573,6 +588,14 @@ export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: U
     }
   }, [selectedEntity]);
 
+  // Fetch departments when edit dialog opens and hospital is already selected
+  useEffect(() => {
+    if (isEditUserOpen && employeeForm.hospital && employeeForm.organizationId) {
+      console.log('Edit dialog opened with hospital:', employeeForm.hospital);
+      fetchDepartments(employeeForm.organizationId, employeeForm.hospital);
+    }
+  }, [isEditUserOpen]);
+
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
 
@@ -611,11 +634,14 @@ export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: U
       ? user.roleId 
       : user.roleId?._id || '';
     
+    const hospitalId = getHospitalId(user);
+    const orgId = user.organizationId || selectedEntity?.code || "";
+    
     setEmployeeForm({
       name: user.name || user.username || '',
       email: user.email,
-      organizationId: user.organizationId || selectedEntity?.code || "",
-      hospital: getHospitalId(user),
+      organizationId: orgId,
+      hospital: hospitalId,
       department: getDepartmentId(user),
       ward: user.ward || "",
       role: user.role,
@@ -626,6 +652,12 @@ export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: U
       joinedDate: user.joinedDate || "",
       contactNumber: user.contactNumber || ""
     });
+    
+    // Fetch departments for the selected hospital if hospital is set
+    if (hospitalId && orgId) {
+      fetchDepartments(orgId, hospitalId);
+    }
+    
     setIsEditUserOpen(true);
   };
 
@@ -921,13 +953,22 @@ export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: U
                           <SelectValue placeholder="Select department" />
                         </SelectTrigger>
                         <SelectContent>
-                          {departments.map((department) => (
-                            <SelectItem key={department._id} value={department._id}>
-                              {department.name}
+                          {departments.length === 0 ? (
+                            <SelectItem value="no-departments" disabled>
+                              No departments available
                             </SelectItem>
-                          ))}
+                          ) : (
+                            departments.map((department) => (
+                              <SelectItem key={department._id} value={department._id}>
+                                {department.name}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
+                      {departments.length === 0 && employeeForm.hospital && (
+                        <p className="text-xs text-gray-500">No departments found for this hospital.</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="ward">Ward</Label>
@@ -1183,13 +1224,22 @@ export function UserManagement({ onNavigate, selectedEntity, userRoleFilter }: U
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
-                  {departments.map((department) => (
-                    <SelectItem key={department._id} value={department._id}>
-                      {department.name}
+                  {departments.length === 0 ? (
+                    <SelectItem value="no-departments" disabled>
+                      No departments available
                     </SelectItem>
-                  ))}
+                  ) : (
+                    departments.map((department) => (
+                      <SelectItem key={department._id} value={department._id}>
+                        {department.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {departments.length === 0 && (
+                <p className="text-xs text-gray-500">No departments found for this hospital.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-ward">Ward</Label>

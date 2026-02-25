@@ -7,7 +7,7 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Badge } from "../ui/badge";
-import { ArrowLeft, CheckCircle, Search, Building, MapPin, Package, History, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Search, MapPin, Package, History, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 interface VerifyAuditAssetProps {
@@ -100,12 +100,13 @@ export default function VerifyAuditAsset({ onNavigate, auditId }: VerifyAuditAss
       setAssetsLoading(true);
       const res = await getAuditAssets(auditId, {
         page,
-        limit: 100, // Fetch more for client-side filtering
+        limit: 20, // 20 assets per page
         status: statusFilter !== "all" ? statusFilter : undefined,
         search: searchQuery || undefined,
       });
       setAllAuditAssets(res.data.auditAssets || []);
       setAssetsByDepartment(res.data.assetsByDepartment || []);
+      // Use overallStats from API which contains totals for all assets in audit
       setOverallStats(res.data.overallStats || null);
       setPagination(res.data.pagination || { currentPage: 1, totalPages: 1, totalCount: 0 });
     } catch (err: any) {
@@ -527,7 +528,7 @@ export default function VerifyAuditAsset({ onNavigate, auditId }: VerifyAuditAss
                     <Label>Location Matched?</Label>
                     <Select
                       value={locationMatched ? "yes" : "no"}
-                      onValueChange={(v) => setLocationMatched(v === "yes")}
+                      onValueChange={(v: string) => setLocationMatched(v === "yes")}
                       disabled={loading}
                     >
                       <SelectTrigger>

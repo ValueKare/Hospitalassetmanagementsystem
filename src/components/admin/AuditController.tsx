@@ -59,7 +59,11 @@ interface DepartmentGroup {
   };
 }
 
-export function AuditController() {
+interface AuditControllerProps {
+  onNavigate?: (screen: string, id?: string | number) => void;
+}
+
+export function AuditController({ onNavigate }: AuditControllerProps) {
   const [assets, setAssets] = useState<AuditAsset[]>([]);
   const [auditCycle, setAuditCycle] = useState("quarterly");
   const [locked, setLocked] = useState(false);

@@ -11,9 +11,9 @@ import { Building2, Plus, Edit2, Trash2, MapPin, Layers, DollarSign } from "luci
 import { toast } from "sonner";
 import { useAssetStore } from "../../store/useAssetStore";
 
-// interface EntitySetupProps {
-//   onNavigate: (screen: string) => void;
-// }
+interface EntitySetupProps {
+  onNavigate: (screen: string) => void;
+}
 
 // Entity creation interface
 interface EntityFormData {
@@ -214,7 +214,7 @@ interface DepartmentFormData {
   costCenter?: string;
 }
 
-export function EntitySetup() {
+export function EntitySetup({ onNavigate }: EntitySetupProps) {
   // Zustand asset store
   const {
     assets,
